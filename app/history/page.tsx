@@ -18,7 +18,7 @@ export default async function HistoryPage() {
     .single()
 
   // Lấy lịch sử làm bài + thông tin bài học
-  const { data: submissions } = await supabase
+  const { data: submissions, error: submissionsError } = await supabase
     .from('submissions')
     .select(`
       id,
@@ -33,6 +33,10 @@ export default async function HistoryPage() {
     `)
     .eq('user_id', user.id)
     .order('submitted_at', { ascending: false })
+
+  if (submissionsError) {
+    console.error('Không thể tải lịch sử làm bài:', submissionsError)
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -54,7 +58,12 @@ export default async function HistoryPage() {
       <main className="max-w-5xl mx-auto px-4 py-8">
         <h2 className="text-2xl font-semibold mb-6">Các bài bạn đã làm</h2>
 
-        {submissions && submissions.length > 0 ? (
+        {submissionsError ? (
+          <div className="bg-white p-8 rounded-lg shadow text-center text-red-600">
+            Không thể tải lịch sử làm bài. Vui lòng thử lại sau.
+            <p className="mt-2 text-sm text-gray-500">{submissionsError.message}</p>
+          </div>
+        ) : submissions && submissions.length > 0 ? (
           <div className="space-y-4">
             {submissions.map((item) => (
               <div key={item.id} className="bg-white p-5 rounded-lg shadow">
