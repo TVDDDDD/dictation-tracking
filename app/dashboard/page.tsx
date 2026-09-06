@@ -33,16 +33,19 @@ export default async function DashboardPage() {
         <div className="max-w-5xl mx-auto px-4 py-4 flex justify-between items-center">
           <h1 className="text-xl font-bold text-blue-600">Dictation Tracking</h1>
           <div className="flex items-center gap-4">
-            <span className="text-sm text-gray-600">
-              Xin chào, <strong>{profile?.full_name || user.email}</strong>
-              {profile?.msv && ` (${profile.msv})`}
-            </span>
-            <form action="/auth/signout" method="post">
-              <button className="text-sm text-red-600 hover:underline">
-                Đăng xuất
-              </button>
-            </form>
-          </div>
+  <Link href="/history" className="text-sm text-blue-600 hover:underline">
+    Lịch sử làm bài
+  </Link>
+  <span className="text-sm text-gray-600">
+    Xin chào, <strong>{profile?.full_name || user.email}</strong>
+    {profile?.msv && ` (${profile.msv})`}
+  </span>
+  <form action="/auth/signout" method="post">
+    <button className="text-sm text-red-600 hover:underline">
+      Đăng xuất
+    </button>
+  </form>
+</div>
         </div>
       </header>
 
