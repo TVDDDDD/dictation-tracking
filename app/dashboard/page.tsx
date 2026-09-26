@@ -28,44 +28,38 @@ export default async function DashboardPage() {
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-800">
-      <header className="sticky top-0 z-10 border-b border-slate-200/80 bg-white/80 backdrop-blur-xl">
-        <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-4 sm:px-6 lg:px-8">
-          <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-blue-600 to-cyan-500 text-lg font-bold text-white shadow-lg shadow-blue-500/20">
-              D
-            </div>
-            <div>
-              <p className="text-xs font-medium uppercase tracking-[0.22em] text-blue-600">
-                Dictation
-              </p>
-              <h1 className="text-lg font-bold text-slate-900">Tracking</h1>
-            </div>
-          </div>
+      <header className="bg-white shadow">
+  <div className="max-w-5xl mx-auto px-4 py-4 flex justify-between items-center">
+    <h1 className="text-xl font-bold text-blue-600">Dictation Tracking</h1>
+    
+    <div className="flex items-center gap-4">
+      {/* Nút Admin - chỉ hiện khi là admin */}
+      {profile?.role === 'admin' && (
+        <Link 
+          href="/admin" 
+          className="text-sm bg-purple-600 text-white px-3 py-1.5 rounded hover:bg-purple-700"
+        >
+          Quản Lý Sinh viên
+        </Link>
+      )}
 
-          <div className="flex items-center gap-3 sm:gap-5">
-            <Link
-              href="/history"
-              className="hidden rounded-full border border-blue-200 bg-blue-50 px-3 py-2 text-sm font-medium text-blue-700 transition hover:border-blue-300 hover:bg-blue-100 sm:inline-flex"
-            >
-              Lịch sử làm bài
-            </Link>
+      <Link href="/history" className="text-sm text-blue-600 hover:underline">
+        Lịch sử làm bài
+      </Link>
 
-            <div className="rounded-full border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-600 shadow-sm">
-              Xin chào, <span className="font-semibold text-slate-800">{profile?.full_name || user.email}</span>
-              {profile?.msv && <span className="text-slate-500"> ({profile.msv})</span>}
-            </div>
+      <span className="text-sm text-gray-600">
+        Xin chào, <strong>{profile?.full_name || user.email}</strong>
+        {profile?.msv && ` (${profile.msv})`}
+      </span>
 
-            <form action="/auth/signout" method="post">
-              <button
-                type="submit"
-                className="rounded-full border border-red-200 bg-red-50 px-3 py-2 text-sm font-medium text-red-600 transition hover:border-red-300 hover:bg-red-100"
-              >
-                Đăng xuất
-              </button>
-            </form>
-          </div>
-        </div>
-      </header>
+      <form action="/auth/signout" method="post">
+        <button className="text-sm text-red-600 hover:underline">
+          Đăng xuất
+        </button>
+      </form>
+    </div>
+  </div>
+</header>
 
       <main className="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
         <section className="mb-8 overflow-hidden rounded-3xl bg-gradient-to-r from-blue-600 via-indigo-600 to-cyan-500 p-6 text-white shadow-xl shadow-blue-500/20 sm:p-8">
