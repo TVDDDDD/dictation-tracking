@@ -8,6 +8,7 @@ import Link from 'next/link'
 export default function RegisterPage() {
   const [fullName, setFullName] = useState('')
   const [msv, setMsv] = useState('')
+  const [classCode, setClassCode] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
@@ -20,13 +21,14 @@ export default function RegisterPage() {
     setLoading(true)
     setMessage('')
 
-    const { data, error } = await supabase.auth.signUp({
+    const { error } = await supabase.auth.signUp({
       email,
       password,
       options: {
         data: {
           full_name: fullName,
           msv: msv,
+          class_code: classCode,
           role: 'student'
         }
       }
@@ -35,9 +37,11 @@ export default function RegisterPage() {
     if (error) {
       setMessage(error.message)
     } else {
-      setMessage('Đăng ký thành công! Hãy kiểm tra email để xác nhận (nếu có).')
-      // Có thể chuyển hướng luôn nếu không bật email confirmation
-      // router.push('/login')
+      setMessage('Đăng ký thành công! Bạn có thể đăng nhập ngay.')
+      // Có thể tự chuyển sang trang login sau 1.5 giây
+      setTimeout(() => {
+        router.push('/login')
+      }, 1500)
     }
     setLoading(false)
   }
@@ -54,7 +58,7 @@ export default function RegisterPage() {
               type="text"
               value={fullName}
               onChange={(e) => setFullName(e.target.value)}
-              className="w-full px-3 py-2 border rounded-md"
+              className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
               required
             />
           </div>
@@ -65,7 +69,19 @@ export default function RegisterPage() {
               type="text"
               value={msv}
               onChange={(e) => setMsv(e.target.value)}
-              className="w-full px-3 py-2 border rounded-md"
+              className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              required
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium mb-1">Mã lớp</label>
+            <input
+              type="text"
+              value={classCode}
+              onChange={(e) => setClassCode(e.target.value)}
+              placeholder="Ví dụ: AV2024A, K28-01..."
+              className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
               required
             />
           </div>
@@ -76,7 +92,7 @@ export default function RegisterPage() {
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="w-full px-3 py-2 border rounded-md"
+              className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
               required
             />
           </div>
@@ -87,7 +103,7 @@ export default function RegisterPage() {
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="w-full px-3 py-2 border rounded-md"
+              className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
               required
               minLength={6}
             />
@@ -102,7 +118,7 @@ export default function RegisterPage() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full bg-blue-600 text-white py-2 rounded-md hover:bg-blue-700 disabled:bg-gray-400"
+            className="w-full bg-blue-600 text-white py-2 rounded-md hover:bg-blue-700 disabled:bg-gray-400 transition"
           >
             {loading ? 'Đang xử lý...' : 'Đăng ký'}
           </button>
