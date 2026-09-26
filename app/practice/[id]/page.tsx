@@ -4,11 +4,11 @@ import { useEffect, useState, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter, useParams } from 'next/navigation'
 import Link from 'next/link'
+import { submitPractice } from './actions'
 
 type Question = {
   id: string
   question_number: number
-  correct_answer: string
 }
 
 type Lesson = {
@@ -32,16 +32,17 @@ export default function PracticePage() {
     score: number
     percentage: number
   } | null>(null)
-  const [resultsMap, setResultsMap] = useState<Record<number, boolean>>({}) // true = đúng
+  const [resultsMap, setResultsMap] = useState<Record<number, boolean>>({})
+  const [correctAnswersMap, setCorrectAnswersMap] = useState<Record<number, string>>({})
 
-  // Audio control
+  // Audio
   const audioRef = useRef<HTMLAudioElement>(null)
   const [hasPlayed, setHasPlayed] = useState(false)
   const [isPlaying, setIsPlaying] = useState(false)
 
   const router = useRouter()
   const params = useParams()
-  const lessonId = params.id
+  const lessonId = Number(params.id)
   const supabase = createClient()
 
   useEffect(() => {
@@ -52,7 +53,7 @@ export default function PracticePage() {
         return
       }
 
-      // Kiểm tra đã làm bài này chưa
+      // Kiểm tra đã làm bài chưa
       const { data: existing } = await supabase
         .from('submissions')
         .select('id')
@@ -66,10 +67,10 @@ export default function PracticePage() {
         return
       }
 
-      // Lấy bài học
+      // Lấy thông tin bài (không lấy đáp án đúng)
       const { data: lessonData, error: lessonError } = await supabase
         .from('lessons')
-        .select('*')
+        .select('id, title, audio_url, passage, total_questions')
         .eq('id', lessonId)
         .single()
 
@@ -79,10 +80,10 @@ export default function PracticePage() {
         return
       }
 
-      // Lấy danh sách câu hỏi
+      // Chỉ lấy id + question_number (không lấy correct_answer)
       const { data: questionsData } = await supabase
         .from('questions')
-        .select('*')
+        .select('id, question_number')
         .eq('lesson_id', lessonId)
         .order('question_number', { ascending: true })
 
@@ -94,7 +95,6 @@ export default function PracticePage() {
     fetchData()
   }, [lessonId])
 
-  // Xử lý Play (chỉ cho phép 1 lần khi chưa nộp bài)
   const handlePlay = () => {
     if (!audioRef.current) return
 
@@ -115,7 +115,7 @@ export default function PracticePage() {
     setAnswers(prev => ({ ...prev, [num]: value }))
   }
 
-  // Render đoạn văn thành các ô input
+  // Render đoạn văn đục lỗ
   const renderPassage = () => {
     if (!lesson?.passage) return null
 
@@ -124,41 +124,46 @@ export default function PracticePage() {
     return (
       <div className="leading-8 text-gray-800 text-[15px]">
         {parts.map((part, index) => {
-          // Nếu là số (đánh dấu chỗ trống)
           if (/^\d+$/.test(part)) {
             const num = parseInt(part)
             const isCorrect = resultsMap[num]
             const userValue = answers[num] || ''
 
             return (
-              <input
-                key={index}
-                type="text"
-                value={userValue}
-                onChange={(e) => handleAnswerChange(num, e.target.value)}
-                disabled={isSubmitted}
-                className={`
-                  inline-block mx-1 px-2 py-0.5 border-b-2 min-w-[100px] text-center
-                  focus:outline-none
-                  ${isSubmitted
-                    ? isCorrect
-                      ? 'border-green-500 text-green-600 bg-green-50'
-                      : 'border-red-500 text-red-600 bg-red-50'
-                    : 'border-blue-400 text-blue-600 bg-blue-50'
-                  }
-                `}
-                placeholder={`(${num})`}
-              />
+              <span key={index} className="inline-block mx-1">
+                <input
+                  type="text"
+                  value={userValue}
+                  onChange={(e) => handleAnswerChange(num, e.target.value)}
+                  disabled={isSubmitted}
+                  className={`
+                    inline-block px-2 py-0.5 border-b-2 min-w-[110px] text-center
+                    focus:outline-none
+                    ${isSubmitted
+                      ? isCorrect
+                        ? 'border-green-500 text-green-600 bg-green-50'
+                        : 'border-red-500 text-red-600 bg-red-50'
+                      : 'border-blue-400 text-blue-600 bg-blue-50'
+                    }
+                  `}
+                  placeholder={`(${num})`}
+                />
+                {/* Hiện đáp án đúng nếu sai */}
+                {isSubmitted && !isCorrect && correctAnswersMap[num] && (
+                  <span className="ml-1 text-xs text-green-700">
+                    ({correctAnswersMap[num]})
+                  </span>
+                )}
+              </span>
             )
           }
-          // Phần text bình thường
           return <span key={index}>{part}</span>
         })}
       </div>
     )
   }
 
-  // Nộp bài
+  // Nộp bài - gọi Server Action
   const handleSubmit = async () => {
     if (!lesson || questions.length === 0) return
 
@@ -171,63 +176,37 @@ export default function PracticePage() {
 
     setSubmitting(true)
 
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return
+    const res = await submitPractice(lesson.id, answers, hasPlayed ? 1 : 0)
 
-    // Chấm điểm
-    let correctCount = 0
-    const newResultsMap: Record<number, boolean> = {}
-
-    questions.forEach(q => {
-      const userAns = (answers[q.question_number] || '').trim().toLowerCase()
-      const correctAns = q.correct_answer.trim().toLowerCase()
-      const isCorrect = userAns === correctAns
-      newResultsMap[q.question_number] = isCorrect
-      if (isCorrect) correctCount++
-    })
-
-    const total = questions.length
-    const percentage = total > 0 ? (correctCount / total) * 100 : 0
-    const score = Math.round((correctCount / total) * 10 * 10) / 10 // thang 10, 1 chữ số thập phân
-
-    // Lưu submission
-    const { data: submission, error: subError } = await supabase
-      .from('submissions')
-      .insert({
-        user_id: user.id,
-        lesson_id: lesson.id,
-        correct_count: correctCount,
-        total_questions: total,
-        score: score,
-        percentage: percentage,
-        listen_count: hasPlayed ? 1 : 0,
-        user_answer: JSON.stringify(answers) // tạm lưu
-      })
-      .select()
-      .single()
-
-    if (subError) {
-      alert('Lỗi khi nộp bài: ' + subError.message)
+    if (!res.success) {
+      alert(res.message || 'Có lỗi xảy ra khi nộp bài')
       setSubmitting(false)
       return
     }
 
-    // Lưu từng câu trả lời
-    const answerRows = questions.map(q => ({
-      submission_id: submission.id,
-      question_id: q.id,
-      user_answer: answers[q.question_number] || '',
-      is_correct: newResultsMap[q.question_number]
-    }))
+    // Xử lý kết quả từ server
+    if (res.result) {
+      const newResultsMap: Record<number, boolean> = {}
+      const newCorrectMap: Record<number, string> = {}
 
-    await supabase.from('submission_answers').insert(answerRows)
+      res.result.details.forEach((item) => {
+        newResultsMap[item.question_number] = item.is_correct
+        newCorrectMap[item.question_number] = item.correct_answer
+      })
 
-    setResultsMap(newResultsMap)
-    setResult({ correct_count: correctCount, total_questions: total, score, percentage })
-    setIsSubmitted(true)
+      setResultsMap(newResultsMap)
+      setCorrectAnswersMap(newCorrectMap)
+      setResult({
+        correct_count: res.result.correct_count,
+        total_questions: res.result.total_questions,
+        score: res.result.score,
+        percentage: res.result.percentage
+      })
+      setIsSubmitted(true)
+    }
+
     setSubmitting(false)
 
-    // Sau khi nộp thì cho phép nghe lại tự do
     if (audioRef.current) {
       audioRef.current.pause()
       setIsPlaying(false)
@@ -252,6 +231,7 @@ export default function PracticePage() {
           </Link>
           <h1 className="text-xl font-bold mt-1">{lesson?.title}</h1>
         </div>
+
         {isSubmitted && result && (
           <div className="text-right">
             <p className="text-sm text-gray-600">Kết quả</p>
@@ -278,7 +258,6 @@ export default function PracticePage() {
           />
 
           {!isSubmitted ? (
-            // Chế độ làm bài: chỉ Play 1 lần
             <div className="space-y-4">
               <button
                 onClick={handlePlay}
@@ -301,25 +280,22 @@ export default function PracticePage() {
                   step="0.1"
                   defaultValue="1"
                   onChange={(e) => {
-                    if (audioRef.current) audioRef.current.volume = parseFloat(e.target.value)
+                    if (audioRef.current) {
+                      audioRef.current.volume = parseFloat(e.target.value)
+                    }
                   }}
                   className="w-full"
                 />
               </div>
 
               <p className="text-sm text-orange-600 bg-orange-50 p-3 rounded">
-                ⚠ Trong lúc làm bài bạn chỉ được nghe <strong>1 lần duy nhất</strong>. 
+                ⚠ Trong lúc làm bài bạn chỉ được nghe <strong>1 lần duy nhất</strong>.
                 Không thể tạm dừng hoặc tua.
               </p>
             </div>
           ) : (
-            // Sau khi nộp: cho nghe tự do
             <div>
-              <audio
-                controls
-                src={lesson?.audio_url}
-                className="w-full"
-              />
+              <audio controls src={lesson?.audio_url} className="w-full" />
               <p className="text-sm text-green-600 mt-3">
                 ✓ Bạn có thể nghe lại và tua tự do để kiểm tra lỗi sai.
               </p>
