@@ -1,10 +1,15 @@
 import { createClient } from '@/lib/supabase/server'
 import { NextRequest, NextResponse } from 'next/server'
+import {
+  escapeCsvCell,
+  vietnamDateToUTC,
+  isValidDateString,
+  type SubmissionRow
+} from '@/lib/admin-utils'
 
 export async function GET(request: NextRequest) {
   const supabase = await createClient()
 
-  // Kiểm tra đăng nhập + quyền admin
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -20,24 +25,44 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
 
-  // Lấy các tham số lọc từ URL
   const searchParams = request.nextUrl.searchParams
   const classCode = searchParams.get('class') || ''
-  const lessonId = searchParams.get('lesson') || ''
+  const lessonParam = searchParams.get('lesson') || ''
   const search = searchParams.get('search') || ''
   const fromDate = searchParams.get('from') || ''
   const toDate = searchParams.get('to') || ''
 
-  // Query submissions
+  // Validate
+  let lessonId: number | null = null
+  if (lessonParam) {
+    lessonId = Number(lessonParam)
+    if (!Number.isInteger(lessonId) || lessonId <= 0) {
+      return NextResponse.json({ error: 'Invalid lesson id' }, { status: 400 })
+    }
+  }
+
+  if (fromDate && !isValidDateString(fromDate)) {
+    return NextResponse.json({ error: 'Invalid from date' }, { status: 400 })
+  }
+  if (toDate && !isValidDateString(toDate)) {
+    return NextResponse.json({ error: 'Invalid to date' }, { status: 400 })
+  }
+  if (fromDate && toDate && fromDate > toDate) {
+    return NextResponse.json({ error: 'from date must be <= to date' }, { status: 400 })
+  }
+
   let query = supabase
     .from('submissions')
     .select(`
+      id,
       score,
       correct_count,
       total_questions,
       percentage,
       listen_count,
       submitted_at,
+      lesson_id,
+      user_id,
       lessons (
         title,
         order_number
@@ -49,57 +74,37 @@ export async function GET(request: NextRequest) {
       )
     `)
     .order('submitted_at', { ascending: false })
+    .limit(1000) // tạm thời, sau sẽ phân trang
 
-  // Áp dụng bộ lọc
-  if (lessonId) {
-    query = query.eq('lesson_id', Number(lessonId))
-  }
-  if (fromDate) {
-    query = query.gte('submitted_at', fromDate)
-  }
-  if (toDate) {
-    // Thêm 1 ngày để bao gồm cả ngày kết thúc
-    const nextDay = new Date(toDate)
-    nextDay.setDate(nextDay.getDate() + 1)
-    query = query.lt('submitted_at', nextDay.toISOString())
-  }
+  if (lessonId) query = query.eq('lesson_id', lessonId)
+  if (fromDate) query = query.gte('submitted_at', vietnamDateToUTC(fromDate, false))
+  if (toDate) query = query.lte('submitted_at', vietnamDateToUTC(toDate, true))
 
-  const { data: submissions, error } = await query
+  const { data, error } = await query
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
 
-  // Lọc thêm ở phía server (class + search tên/MSV)
-  let filtered = submissions || []
+    let filtered = (data || []) as unknown as SubmissionRow[]
 
   if (classCode) {
-    filtered = filtered.filter((s: any) => s.profiles?.class_code === classCode)
+    filtered = filtered.filter(s => s.profiles?.class_code === classCode)
   }
   if (search) {
     const keyword = search.toLowerCase()
-    filtered = filtered.filter((s: any) => 
+    filtered = filtered.filter(s =>
       s.profiles?.full_name?.toLowerCase().includes(keyword) ||
       s.profiles?.msv?.toLowerCase().includes(keyword)
     )
   }
 
-  // Tạo CSV
   const headers = [
-    'class_code',
-    'msv',
-    'student_name',
-    'lesson_order',
-    'lesson_title',
-    'submitted_at',
-    'correct_count',
-    'total_questions',
-    'percentage',
-    'score',
-    'listen_count'
+    'class_code', 'msv', 'student_name', 'lesson_order', 'lesson_title',
+    'submitted_at', 'correct_count', 'total_questions', 'percentage', 'score', 'listen_count'
   ]
 
-  const rows = filtered.map((item: any) => [
+  const rows = filtered.map(item => [
     item.profiles?.class_code || '',
     item.profiles?.msv || '',
     item.profiles?.full_name || '',
@@ -113,20 +118,10 @@ export async function GET(request: NextRequest) {
     item.listen_count ?? 0
   ])
 
-  // Tạo nội dung CSV (UTF-8 BOM để Excel mở tiếng Việt đẹp)
   const bom = '\uFEFF'
   const csvContent = bom + [
     headers.join(','),
-    ...rows.map(row => 
-      row.map(cell => {
-        const str = String(cell ?? '')
-        // Escape nếu có dấu phẩy, xuống dòng hoặc dấu nháy
-        if (str.includes(',') || str.includes('"') || str.includes('\n')) {
-          return `"${str.replace(/"/g, '""')}"`
-        }
-        return str
-      }).join(',')
-    )
+    ...rows.map(row => row.map(escapeCsvCell).join(','))
   ].join('\n')
 
   return new NextResponse(csvContent, {

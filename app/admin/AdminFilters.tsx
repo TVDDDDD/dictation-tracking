@@ -1,11 +1,17 @@
 'use client'
 
-import { useRouter, useSearchParams } from 'next/navigation'
+import { useRouter } from 'next/navigation'
 import { useState } from 'react'
+
+type Lesson = {
+  id: number
+  title: string
+  order_number: number
+}
 
 type Props = {
   classList: string[]
-  lessons: { id: number; title: string; order_number: number }[]
+  lessons: Lesson[]
   currentParams: { [key: string]: string | undefined }
 }
 
@@ -21,7 +27,7 @@ export default function AdminFilters({ classList, lessons, currentParams }: Prop
     const params = new URLSearchParams()
     if (classCode) params.set('class', classCode)
     if (lesson) params.set('lesson', lesson)
-    if (search) params.set('search', search)
+    if (search.trim()) params.set('search', search.trim())
     if (fromDate) params.set('from', fromDate)
     if (toDate) params.set('to', toDate)
 
@@ -40,7 +46,6 @@ export default function AdminFilters({ classList, lessons, currentParams }: Prop
   return (
     <div className="bg-white p-4 rounded-lg shadow mb-6">
       <div className="grid grid-cols-1 md:grid-cols-5 gap-3">
-        {/* Lớp */}
         <div>
           <label className="block text-xs text-gray-500 mb-1">Lớp</label>
           <select
@@ -55,7 +60,6 @@ export default function AdminFilters({ classList, lessons, currentParams }: Prop
           </select>
         </div>
 
-        {/* Bài */}
         <div>
           <label className="block text-xs text-gray-500 mb-1">Bài nghe</label>
           <select
@@ -72,7 +76,6 @@ export default function AdminFilters({ classList, lessons, currentParams }: Prop
           </select>
         </div>
 
-        {/* Tìm kiếm */}
         <div>
           <label className="block text-xs text-gray-500 mb-1">MSV / Tên</label>
           <input
@@ -84,7 +87,6 @@ export default function AdminFilters({ classList, lessons, currentParams }: Prop
           />
         </div>
 
-        {/* Từ ngày */}
         <div>
           <label className="block text-xs text-gray-500 mb-1">Từ ngày</label>
           <input
@@ -95,7 +97,6 @@ export default function AdminFilters({ classList, lessons, currentParams }: Prop
           />
         </div>
 
-        {/* Đến ngày */}
         <div>
           <label className="block text-xs text-gray-500 mb-1">Đến ngày</label>
           <input
