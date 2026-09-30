@@ -1,26 +1,29 @@
-import { createClient } from '@/lib/supabase/server'
-import { redirect } from 'next/navigation'
-import Link from 'next/link'
+import { createClient } from "@/lib/supabase/server";
+import { redirect } from "next/navigation";
+import Link from "next/link";
 
 export default async function HistoryPage() {
-  const supabase = await createClient()
+  const supabase = await createClient();
 
-  const { data: { user } } = await supabase.auth.getUser()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
   if (!user) {
-    redirect('/login')
+    redirect("/login");
   }
 
   // Lấy thông tin profile
   const { data: profile } = await supabase
-    .from('profiles')
-    .select('*')
-    .eq('id', user.id)
-    .single()
+    .from("profiles")
+    .select("*")
+    .eq("id", user.id)
+    .single();
 
   // Lấy lịch sử làm bài + thông tin bài học
   const { data: submissions, error: submissionsError } = await supabase
-    .from('submissions')
-    .select(`
+    .from("submissions")
+    .select(
+      `
       id,
       score,
       user_answer,
@@ -30,73 +33,85 @@ export default async function HistoryPage() {
         title,
         order_number
       )
-    `)
-    .eq('user_id', user.id)
-    .order('submitted_at', { ascending: false })
+    `,
+    )
+    .eq("user_id", user.id)
+    .order("submitted_at", { ascending: false });
 
   if (submissionsError) {
-    console.error('Không thể tải lịch sử làm bài:', submissionsError)
+    console.error("Không thể tải lịch sử làm bài:", submissionsError);
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <header className="bg-white shadow">
-        <div className="max-w-5xl mx-auto px-4 py-4 flex justify-between items-center">
+    <div className="app-page">
+      <header className="topbar">
+        <div className="topbar-inner">
           <div className="flex items-center gap-4">
-            <Link href="/dashboard" className="text-blue-600 hover:underline text-sm">
+            <Link href="/dashboard" className="button button-subtle">
               ← Dashboard
             </Link>
-            <h1 className="text-xl font-bold text-blue-600">Lịch sử làm bài</h1>
+            <Link href="/dashboard" className="brand-lockup">
+              <span className="brand-mark">D</span>
+              <span className="brand-copy">
+                <span className="brand-kicker">LEARNING RECORD</span>
+                <span className="brand-name">Lịch sử làm bài</span>
+              </span>
+            </Link>
           </div>
-          <span className="text-sm text-gray-600">
+          <span className="user-chip">
             {profile?.full_name} {profile?.msv && `(${profile.msv})`}
           </span>
         </div>
       </header>
 
-      <main className="max-w-5xl mx-auto px-4 py-8">
-        <h2 className="text-2xl font-semibold mb-6">Các bài bạn đã làm</h2>
+      <main className="content-wrap">
+        <div className="page-intro">
+          <div>
+            <span className="eyebrow">Nhật ký học tập</span>
+            <h1 className="page-title">Bài đã hoàn thành</h1>
+            <p className="page-description">
+              Xem lại điểm số và thời gian nộp của từng bài nghe.
+            </p>
+          </div>
+        </div>
 
         {submissionsError ? (
-          <div className="bg-white p-8 rounded-lg shadow text-center text-red-600">
+          <div className="notice-error">
             Không thể tải lịch sử làm bài. Vui lòng thử lại sau.
-            <p className="mt-2 text-sm text-gray-500">{submissionsError.message}</p>
+            <p className="mt-2 text-sm text-gray-500">
+              {submissionsError.message}
+            </p>
           </div>
         ) : submissions && submissions.length > 0 ? (
-          <div className="space-y-4">
+          <div className="history-list">
             {submissions.map((item) => (
-              <div key={item.id} className="bg-white p-5 rounded-lg shadow">
-                <div className="flex justify-between items-start">
+              <article key={item.id} className="history-row">
+                <div>
                   <div>
-                    <h3 className="font-medium text-lg">
-                      {item.lessons?.[0]?.title || 'Bài không xác định'}
-                    </h3>
-                    <p className="text-sm text-gray-500 mt-1">
-                      Bài số {item.lessons?.[0]?.order_number} • 
-                      Ngày làm: {new Date(item.submitted_at).toLocaleString('vi-VN')}
+                    <h2 className="history-title">
+                      {item.lessons?.[0]?.title || "Bài không xác định"}
+                    </h2>
+                    <p className="history-meta">
+                      Bài số {item.lessons?.[0]?.order_number} • Ngày làm:{" "}
+                      {new Date(item.submitted_at).toLocaleString("vi-VN")}
                     </p>
                   </div>
-                  <div className="text-right">
-                    <p className={`text-2xl font-bold ${
-                      item.score >= 8 ? 'text-green-600' : 
-                      item.score >= 5 ? 'text-yellow-600' : 'text-red-600'
-                    }`}>
-                      {item.score}/10
-                    </p>
-                    <p className="text-xs text-gray-500">
+                  <div>
+                    <p className="history-score">{item.score}/10</p>
+                    <p className="history-score-label">
                       Nghe {item.listen_count} lần
                     </p>
                   </div>
                 </div>
-              </div>
+              </article>
             ))}
           </div>
         ) : (
-          <div className="bg-white p-8 rounded-lg shadow text-center text-gray-500">
-            Bạn chưa làm bài nào cả.
+          <div className="empty-state">
+            <h3>Bạn chưa làm bài nào</h3>
+            <p>Khi hoàn thành bài luyện tập, kết quả sẽ được lưu tại đây.</p>
             <div className="mt-4">
-              <Link href="/dashboard" className="text-blue-600 hover:underline">
+              <Link href="/dashboard" className="button button-primary">
                 Đi làm bài ngay →
               </Link>
             </div>
@@ -104,5 +119,5 @@ export default async function HistoryPage() {
         )}
       </main>
     </div>
-  )
+  );
 }
