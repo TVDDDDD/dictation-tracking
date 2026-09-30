@@ -1,14 +1,19 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
+import AdminFilters from './AdminFilters'
 
-export default async function AdminPage() {
+export default async function AdminPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ [key: string]: string | undefined }>
+}) {
   const supabase = await createClient()
+  const params = await searchParams
 
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  // Kiểm tra quyền admin
   const { data: profile } = await supabase
     .from('profiles')
     .select('role, full_name')
@@ -19,15 +24,24 @@ export default async function AdminPage() {
     redirect('/dashboard')
   }
 
-  // Lấy danh sách sinh viên
-  const { data: students } = await supabase
+  // Lấy danh sách lớp và bài để làm bộ lọc
+  const { data: allProfiles } = await supabase
     .from('profiles')
-    .select('*')
+    .select('class_code')
     .eq('role', 'student')
-    .order('full_name')
 
-  // Lấy tất cả bài nộp (kèm thông tin bài và sinh viên)
-  const { data: submissions } = await supabase
+  const classList = Array.from(
+    new Set(allProfiles?.map(p => p.class_code).filter(Boolean) || [])
+  ).sort()
+
+  const { data: lessons } = await supabase
+    .from('lessons')
+    .select('id, title, order_number')
+    .eq('is_active', true)
+    .order('order_number')
+
+  // Query submissions
+  let query = supabase
     .from('submissions')
     .select(`
       id,
@@ -37,8 +51,8 @@ export default async function AdminPage() {
       percentage,
       listen_count,
       submitted_at,
-      user_id,
       lesson_id,
+      user_id,
       lessons (
         title,
         order_number
@@ -51,12 +65,58 @@ export default async function AdminPage() {
     `)
     .order('submitted_at', { ascending: false })
 
-  // Thống kê nhanh
-  const totalStudents = students?.length || 0
-  const totalSubmissions = submissions?.length || 0
-  const avgScore = totalSubmissions > 0
-    ? (submissions!.reduce((sum, s) => sum + Number(s.score || 0), 0) / totalSubmissions).toFixed(1)
-    : '0'
+  // Áp dụng filter từ URL
+  if (params.lesson) {
+    query = query.eq('lesson_id', Number(params.lesson))
+  }
+  if (params.from) {
+    query = query.gte('submitted_at', params.from)
+  }
+  if (params.to) {
+    const nextDay = new Date(params.to)
+    nextDay.setDate(nextDay.getDate() + 1)
+    query = query.lt('submitted_at', nextDay.toISOString())
+  }
+
+  const { data: rawSubmissions } = await query
+
+  // Lọc thêm class + search (vì join)
+  let submissions = rawSubmissions || []
+
+  if (params.class) {
+    submissions = submissions.filter(
+      (s: any) => s.profiles?.class_code === params.class
+    )
+  }
+  if (params.search) {
+    const keyword = params.search.toLowerCase()
+    submissions = submissions.filter(
+      (s: any) =>
+        s.profiles?.full_name?.toLowerCase().includes(keyword) ||
+        s.profiles?.msv?.toLowerCase().includes(keyword)
+    )
+  }
+
+  // Thống kê theo dữ liệu đã lọc
+  const totalSubmissions = submissions.length
+  const avgScore =
+    totalSubmissions > 0
+      ? (
+          submissions.reduce((sum: number, s: any) => sum + Number(s.score || 0), 0) /
+          totalSubmissions
+        ).toFixed(1)
+      : '0'
+
+  const uniqueStudents = new Set(submissions.map((s: any) => s.user_id)).size
+
+  // Tạo query string để xuất CSV
+  const exportParams = new URLSearchParams()
+  if (params.class) exportParams.set('class', params.class)
+  if (params.lesson) exportParams.set('lesson', params.lesson)
+  if (params.search) exportParams.set('search', params.search)
+  if (params.from) exportParams.set('from', params.from)
+  if (params.to) exportParams.set('to', params.to)
+  const exportUrl = `/api/admin/export?${exportParams.toString()}`
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -76,25 +136,41 @@ export default async function AdminPage() {
       </header>
 
       <main className="max-w-7xl mx-auto px-4 py-8">
-        {/* Thống kê tổng quan */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+        {/* Bộ lọc */}
+        <AdminFilters
+          classList={classList}
+          lessons={lessons || []}
+          currentParams={params}
+        />
+
+        {/* Thống kê (theo bộ lọc) */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
           <div className="bg-white p-5 rounded-lg shadow">
-            <p className="text-sm text-gray-500">Tổng số sinh viên</p>
-            <p className="text-3xl font-bold text-blue-600">{totalStudents}</p>
-          </div>
-          <div className="bg-white p-5 rounded-lg shadow">
-            <p className="text-sm text-gray-500">Tổng số bài đã nộp</p>
+            <p className="text-sm text-gray-500">Số bài nộp (đang lọc)</p>
             <p className="text-3xl font-bold text-green-600">{totalSubmissions}</p>
           </div>
           <div className="bg-white p-5 rounded-lg shadow">
-            <p className="text-sm text-gray-500">Điểm trung bình</p>
+            <p className="text-sm text-gray-500">Số sinh viên (đang lọc)</p>
+            <p className="text-3xl font-bold text-blue-600">{uniqueStudents}</p>
+          </div>
+          <div className="bg-white p-5 rounded-lg shadow">
+            <p className="text-sm text-gray-500">Điểm trung bình (đang lọc)</p>
             <p className="text-3xl font-bold text-purple-600">{avgScore}</p>
           </div>
         </div>
 
-        {/* Bảng chi tiết bài nộp */}
-        <h2 className="text-xl font-semibold mb-4">Chi tiết bài làm của sinh viên</h2>
-        
+        {/* Nút xuất CSV */}
+        <div className="flex justify-between items-center mb-4">
+          <h2 className="text-xl font-semibold">Chi tiết bài làm</h2>
+          <a
+            href={exportUrl}
+            className="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 text-sm font-medium"
+          >
+            ↓ Xuất CSV
+          </a>
+        </div>
+
+        {/* Bảng dữ liệu */}
         <div className="bg-white rounded-lg shadow overflow-x-auto">
           <table className="min-w-full text-sm">
             <thead className="bg-gray-100 text-left">
@@ -110,7 +186,7 @@ export default async function AdminPage() {
               </tr>
             </thead>
             <tbody>
-              {submissions && submissions.length > 0 ? (
+              {submissions.length > 0 ? (
                 submissions.map((item: any) => (
                   <tr key={item.id} className="border-t hover:bg-gray-50">
                     <td className="px-4 py-3 font-medium">
@@ -127,10 +203,15 @@ export default async function AdminPage() {
                       </span>
                     </td>
                     <td className="px-4 py-3">
-                      <span className={`font-bold ${
-                        Number(item.score) >= 8 ? 'text-green-600' :
-                        Number(item.score) >= 5 ? 'text-yellow-600' : 'text-red-600'
-                      }`}>
+                      <span
+                        className={`font-bold ${
+                          Number(item.score) >= 8
+                            ? 'text-green-600'
+                            : Number(item.score) >= 5
+                            ? 'text-yellow-600'
+                            : 'text-red-600'
+                        }`}
+                      >
                         {item.score ?? '—'}/10
                       </span>
                     </td>
@@ -143,37 +224,10 @@ export default async function AdminPage() {
               ) : (
                 <tr>
                   <td colSpan={8} className="px-4 py-8 text-center text-gray-500">
-                    Chưa có bài nộp nào.
+                    Không có dữ liệu phù hợp với bộ lọc.
                   </td>
                 </tr>
               )}
-            </tbody>
-          </table>
-        </div>
-
-        {/* Danh sách sinh viên */}
-        <h2 className="text-xl font-semibold mt-10 mb-4">Danh sách sinh viên</h2>
-        <div className="bg-white rounded-lg shadow overflow-hidden">
-          <table className="min-w-full text-sm">
-            <thead className="bg-gray-100">
-              <tr>
-                <th className="px-4 py-3 text-left">Họ tên</th>
-                <th className="px-4 py-3 text-left">MSV</th>
-                <th className="px-4 py-3 text-left">Lớp</th>
-                <th className="px-4 py-3 text-left">Ngày đăng ký</th>
-              </tr>
-            </thead>
-            <tbody>
-              {students?.map((s) => (
-                <tr key={s.id} className="border-t">
-                  <td className="px-4 py-3">{s.full_name}</td>
-                  <td className="px-4 py-3">{s.msv}</td>
-                  <td className="px-4 py-3">{s.class_code || '—'}</td>
-                  <td className="px-4 py-3">
-                    {new Date(s.created_at).toLocaleDateString('vi-VN')}
-                  </td>
-                </tr>
-              ))}
             </tbody>
           </table>
         </div>
