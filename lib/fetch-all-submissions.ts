@@ -23,8 +23,8 @@ export type FullSubmission = {
 
 type FetchOptions = {
   lessonId?: number | null
-  fromDate?: string | null   // UTC ISO
-  toDate?: string | null     // UTC ISO
+  fromDate?: string | null
+  toDate?: string | null
 }
 
 /**
