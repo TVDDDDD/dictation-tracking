@@ -2,6 +2,17 @@ import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 
+type LessonSummary = {
+  title: string;
+  order_number: number;
+};
+
+function getLessonSummary(
+  relation: LessonSummary | LessonSummary[] | null | undefined,
+) {
+  return Array.isArray(relation) ? (relation[0] ?? null) : (relation ?? null);
+}
+
 export default async function HistoryPage() {
   const supabase = await createClient();
 
@@ -84,27 +95,31 @@ export default async function HistoryPage() {
           </div>
         ) : submissions && submissions.length > 0 ? (
           <div className="history-list">
-            {submissions.map((item) => (
-              <article key={item.id} className="history-row">
-                <div>
+            {submissions.map((item) => {
+              const lesson = getLessonSummary(item.lessons);
+
+              return (
+                <article key={item.id} className="history-row">
                   <div>
-                    <h2 className="history-title">
-                      {item.lessons?.[0]?.title || "Bài không xác định"}
-                    </h2>
-                    <p className="history-meta">
-                      Bài số {item.lessons?.[0]?.order_number} • Ngày làm:{" "}
-                      {new Date(item.submitted_at).toLocaleString("vi-VN")}
-                    </p>
+                    <div>
+                      <h2 className="history-title">
+                        {lesson?.title || "Bài không xác định"}
+                      </h2>
+                      <p className="history-meta">
+                        {lesson?.order_number != null && `Bài số ${lesson.order_number} • `}
+                        Ngày làm: {new Date(item.submitted_at).toLocaleString("vi-VN")}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="history-score">{item.score}/10</p>
+                      <p className="history-score-label">
+                        Nghe {item.listen_count} lần
+                      </p>
+                    </div>
                   </div>
-                  <div>
-                    <p className="history-score">{item.score}/10</p>
-                    <p className="history-score-label">
-                      Nghe {item.listen_count} lần
-                    </p>
-                  </div>
-                </div>
-              </article>
-            ))}
+                </article>
+              );
+            })}
           </div>
         ) : (
           <div className="empty-state">
