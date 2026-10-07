@@ -870,6 +870,20 @@ textarea {
   line-height: 2.35;
 }
 
+.passage-highlight {
+  border-radius: 3px;
+  padding: 1px 2px;
+  background: #f9df83;
+  color: #3f3520;
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
+}
+
+.highlight-selection-mode {
+  cursor: text;
+  user-select: text;
+}
+
 .answer-input {
   min-width: 100px;
   max-width: min(220px, 44vw);
@@ -1121,6 +1135,7 @@ textarea {
 }
 
 @media (max-width: 680px) {
+
   .topbar-inner,
   .content-wrap,
   .practice-header-inner,
@@ -1201,7 +1216,7 @@ textarea {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  .filter-grid > :nth-child(3) {
+  .filter-grid> :nth-child(3) {
     grid-column: 1 / -1;
   }
 
@@ -1308,7 +1323,7 @@ textarea {
     grid-template-columns: 1fr;
   }
 
-  .filter-grid > :nth-child(3) {
+  .filter-grid> :nth-child(3) {
     grid-column: auto;
   }
 
@@ -1318,6 +1333,7 @@ textarea {
 }
 
 @media (prefers-reduced-motion: reduce) {
+
   *,
   *::before,
   *::after {

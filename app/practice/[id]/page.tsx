@@ -19,6 +19,11 @@ type Lesson = {
   total_questions: number
 }
 
+type HighlightRange = {
+  start: number
+  end: number
+}
+
 export default function PracticePage() {
   const [lesson, setLesson] = useState<Lesson | null>(null)
   const [questions, setQuestions] = useState<Question[]>([])
@@ -34,9 +39,12 @@ export default function PracticePage() {
   } | null>(null)
   const [resultsMap, setResultsMap] = useState<Record<number, boolean>>({})
   const [correctAnswersMap, setCorrectAnswersMap] = useState<Record<number, string>>({})
+  const [highlightMode, setHighlightMode] = useState(false)
+  const [highlights, setHighlights] = useState<HighlightRange[]>([])
 
   // Audio
   const audioRef = useRef<HTMLAudioElement>(null)
+  const passageRef = useRef<HTMLDivElement>(null)
   const [hasPlayed, setHasPlayed] = useState(false)
   const [isPlaying, setIsPlaying] = useState(false)
   const [audioSrc, setAudioSrc] = useState<string | null>(null)
@@ -173,13 +181,97 @@ export default function PracticePage() {
     setAnswers((prev) => ({ ...prev, [num]: value }))
   }
 
+  const addHighlightFromSelection = () => {
+    if (isSubmitted) return
+
+    const container = passageRef.current
+    const selection = window.getSelection()
+    if (!container || !selection || selection.isCollapsed || selection.rangeCount === 0) {
+      return
+    }
+
+    const range = selection.getRangeAt(0)
+    if (
+      !container.contains(range.startContainer) ||
+      !container.contains(range.endContainer) ||
+      !selection.toString().trim()
+    ) {
+      return
+    }
+
+    const getTextOffset = (node: Node, offset: number) => {
+      const prefixRange = document.createRange()
+      prefixRange.selectNodeContents(container)
+      prefixRange.setEnd(node, offset)
+      return prefixRange.toString().length
+    }
+
+    const start = getTextOffset(range.startContainer, range.startOffset)
+    const end = getTextOffset(range.endContainer, range.endOffset)
+    if (end <= start) return
+
+    setHighlights((current) => {
+      const sorted = [...current, { start, end }].sort((a, b) => a.start - b.start)
+      const merged: HighlightRange[] = []
+
+      for (const item of sorted) {
+        const previous = merged[merged.length - 1]
+        if (previous && item.start <= previous.end) {
+          previous.end = Math.max(previous.end, item.end)
+        } else {
+          merged.push({ ...item })
+        }
+      }
+
+      return merged
+    })
+  }
+
+  const renderHighlightedText = (text: string, offset: number) => {
+    const ranges = highlights
+      .filter((item) => item.end > offset && item.start < offset + text.length)
+      .map((item) => ({
+        start: Math.max(item.start - offset, 0),
+        end: Math.min(item.end - offset, text.length),
+      }))
+
+    if (ranges.length === 0) return text
+
+    const nodes: React.ReactNode[] = []
+    let cursor = 0
+
+    ranges.forEach((range, index) => {
+      if (cursor < range.start) {
+        nodes.push(<span key={`text-${index}`}>{text.slice(cursor, range.start)}</span>)
+      }
+      nodes.push(
+        <mark className="passage-highlight" key={`highlight-${index}`}>
+          {text.slice(range.start, range.end)}
+        </mark>
+      )
+      cursor = range.end
+    })
+
+    if (cursor < text.length) {
+      nodes.push(<span key="text-end">{text.slice(cursor)}</span>)
+    }
+
+    return nodes
+  }
+
   const renderPassage = () => {
     if (!lesson?.passage) return null
 
     const parts = lesson.passage.split(/\{\{(\d+)\}\}/g)
+    let textOffset = 0
 
     return (
-      <div className="leading-8 text-gray-800 text-[15px]">
+      <div
+        ref={passageRef}
+        className={`leading-8 text-gray-800 text-[15px] ${highlightMode && !isSubmitted ? 'highlight-selection-mode' : ''}`}
+        onDoubleClick={addHighlightFromSelection}
+        onMouseUp={highlightMode ? addHighlightFromSelection : undefined}
+      >
         {parts.map((part, index) => {
           if (/^\d+$/.test(part)) {
             const num = parseInt(part)
@@ -214,7 +306,9 @@ export default function PracticePage() {
               </span>
             )
           }
-          return <span key={index}>{part}</span>
+          const partOffset = textOffset
+          textOffset += part.length
+          return <span key={index}>{renderHighlightedText(part, partOffset)}</span>
         })}
       </div>
     )
@@ -406,6 +500,35 @@ export default function PracticePage() {
           <h2 className="text-lg font-semibold mb-4">Điền vào chỗ trống</h2>
 
           <div className="mb-6 p-4 bg-gray-50 rounded-md border">
+            <div className="mb-4 flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setHighlightMode((enabled) => !enabled)}
+                disabled={isSubmitted}
+                aria-pressed={highlightMode}
+                className={`rounded-md px-3 py-1.5 text-sm font-medium transition ${
+                  highlightMode
+                    ? 'bg-amber-300 text-amber-950'
+                    : 'border border-gray-300 bg-white text-gray-700 hover:bg-gray-100'
+                } disabled:cursor-not-allowed disabled:opacity-50`}
+              >
+                {highlightMode ? 'Đang bật tô sáng' : 'Bật chế độ tô sáng'}
+              </button>
+              {highlights.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setHighlights([])}
+                  className="rounded-md px-3 py-1.5 text-sm font-medium text-gray-600 hover:bg-gray-200"
+                >
+                  Xóa đánh dấu
+                </button>
+              )}
+              <span className="text-xs text-gray-500">
+                {highlightMode
+                  ? 'Kéo chọn đoạn chữ để tô sáng.'
+                  : 'Nhấp đúp vào một từ để tô sáng.'}
+              </span>
+            </div>
             {renderPassage()}
           </div>
 
