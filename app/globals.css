@@ -881,6 +881,7 @@ textarea {
 
 .highlight-selection-mode {
   cursor: text;
+  -webkit-user-select: text;
   user-select: text;
 }
 

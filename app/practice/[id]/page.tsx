@@ -41,6 +41,7 @@ export default function PracticePage() {
   const [correctAnswersMap, setCorrectAnswersMap] = useState<Record<number, string>>({})
   const [highlightMode, setHighlightMode] = useState(false)
   const [highlights, setHighlights] = useState<HighlightRange[]>([])
+  const lastTouchTapRef = useRef<{ time: number; x: number; y: number } | null>(null)
 
   // Audio
   const audioRef = useRef<HTMLAudioElement>(null)
@@ -225,6 +226,86 @@ export default function PracticePage() {
 
       return merged
     })
+    selection.removeAllRanges()
+  }
+
+  const selectWordAtPoint = (x: number, y: number) => {
+    const container = passageRef.current
+    if (!container) return
+
+    const documentWithCaret = document as Document & {
+      caretRangeFromPoint?: (x: number, y: number) => Range | null
+      caretPositionFromPoint?: (
+        x: number,
+        y: number
+      ) => { offsetNode: Node; offset: number } | null
+    }
+
+    let range = documentWithCaret.caretRangeFromPoint?.(x, y) ?? null
+    if (!range && documentWithCaret.caretPositionFromPoint) {
+      const position = documentWithCaret.caretPositionFromPoint(x, y)
+      if (position) {
+        range = document.createRange()
+        range.setStart(position.offsetNode, position.offset)
+        range.collapse(true)
+      }
+    }
+
+    if (!range || !container.contains(range.startContainer)) return
+
+    const textNode = range.startContainer
+    if (textNode.nodeType !== Node.TEXT_NODE) return
+
+    const text = textNode.textContent || ''
+    let wordIndex = range.startOffset
+    const isWordCharacter = (character: string) =>
+      /[\p{L}\p{M}\p{N}'’_-]/u.test(character)
+
+    if (wordIndex === text.length && wordIndex > 0) wordIndex -= 1
+    if (!isWordCharacter(text[wordIndex] || '') && wordIndex > 0) {
+      wordIndex -= 1
+    }
+    if (!isWordCharacter(text[wordIndex] || '')) return
+
+    let start = wordIndex
+    let end = wordIndex + 1
+    while (start > 0 && isWordCharacter(text[start - 1])) start -= 1
+    while (end < text.length && isWordCharacter(text[end])) end += 1
+
+    range.setStart(textNode, start)
+    range.setEnd(textNode, end)
+    const selection = window.getSelection()
+    selection?.removeAllRanges()
+    selection?.addRange(range)
+  }
+
+  const handlePassageTouchEnd = (event: React.TouchEvent<HTMLDivElement>) => {
+    const touch = event.changedTouches[0]
+    if (!touch) return
+
+    if (highlightMode) {
+      window.setTimeout(addHighlightFromSelection, 80)
+      return
+    }
+
+    const now = Date.now()
+    const previousTap = lastTouchTapRef.current
+    const isDoubleTap =
+      previousTap !== null &&
+      now - previousTap.time < 400 &&
+      Math.hypot(touch.clientX - previousTap.x, touch.clientY - previousTap.y) < 32
+
+    if (isDoubleTap) {
+      lastTouchTapRef.current = null
+      selectWordAtPoint(touch.clientX, touch.clientY)
+      window.setTimeout(addHighlightFromSelection, 50)
+    } else {
+      lastTouchTapRef.current = {
+        time: now,
+        x: touch.clientX,
+        y: touch.clientY,
+      }
+    }
   }
 
   const renderHighlightedText = (text: string, offset: number) => {
@@ -270,7 +351,12 @@ export default function PracticePage() {
         ref={passageRef}
         className={`leading-8 text-gray-800 text-[15px] ${highlightMode && !isSubmitted ? 'highlight-selection-mode' : ''}`}
         onDoubleClick={addHighlightFromSelection}
-        onMouseUp={highlightMode ? addHighlightFromSelection : undefined}
+        onPointerUp={(event) => {
+          if (highlightMode && event.pointerType !== 'touch') {
+            window.setTimeout(addHighlightFromSelection, 0)
+          }
+        }}
+        onTouchEnd={handlePassageTouchEnd}
       >
         {parts.map((part, index) => {
           if (/^\d+$/.test(part)) {
