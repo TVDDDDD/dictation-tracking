@@ -28,27 +28,6 @@ export default async function AdminPage({
     redirect("/dashboard");
   }
 
-  // Lấy danh sách lớp
-  const { data: allProfiles } = await supabase
-    .from("profiles")
-    .select("class_code")
-    .eq("role", "student");
-
-  const classList = Array.from(
-    new Set(
-      (allProfiles || [])
-        .map((p) => p.class_code)
-        .filter((c): c is string => Boolean(c)),
-    ),
-  ).sort();
-
-  // Lấy danh sách bài
-  const { data: lessons } = await supabase
-    .from("lessons")
-    .select("id, title, order_number")
-    .eq("is_active", true)
-    .order("order_number");
-
   // Validate tham số
   const lessonParam = params.lesson;
   let lessonId: number | null = null;
@@ -63,12 +42,33 @@ export default async function AdminPage({
     params.from && isValidDateString(params.from) ? params.from : null;
   const toDate = params.to && isValidDateString(params.to) ? params.to : null;
 
-  // Lấy toàn bộ submissions (phân trang)
-  let submissions = await fetchAllFullSubmissions({
-    lessonId,
-    fromDate: fromDate ? vietnamDateToUTC(fromDate, false) : null,
-    toDate: toDate ? vietnamDateToUTC(toDate, true) : null,
-  });
+  // These reads are independent after the admin session is verified.
+  const [profilesResult, lessonsResult, submissionsResult] = await Promise.all([
+    supabase
+      .from("profiles")
+      .select("class_code")
+      .eq("role", "student"),
+    supabase
+      .from("lessons")
+      .select("id, title, order_number")
+      .eq("is_active", true)
+      .order("order_number"),
+    fetchAllFullSubmissions({
+      lessonId,
+      fromDate: fromDate ? vietnamDateToUTC(fromDate, false) : null,
+      toDate: toDate ? vietnamDateToUTC(toDate, true) : null,
+    }),
+  ]);
+
+  const classList = Array.from(
+    new Set(
+      (profilesResult.data || [])
+        .map((p) => p.class_code)
+        .filter((classCode): classCode is string => Boolean(classCode)),
+    ),
+  ).sort();
+  const lessons = lessonsResult.data;
+  let submissions = submissionsResult;
 
   // Lọc class + search
   if (params.class) {
