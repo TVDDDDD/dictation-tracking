@@ -65,41 +65,42 @@ export default function PracticePage() {
         return
       }
 
-      // Kiểm tra đã làm bài chưa
-      const { data: existing } = await supabase
-        .from('submissions')
-        .select('id')
-        .eq('user_id', user.id)
-        .eq('lesson_id', lessonId)
-        .maybeSingle()
+      const [existingResult, lessonResult, questionsResult] = await Promise.all([
+        supabase
+          .from('submissions')
+          .select('id')
+          .eq('user_id', user.id)
+          .eq('lesson_id', lessonId)
+          .maybeSingle(),
+        supabase
+          .from('lessons')
+          .select('id, title, audio_url, passage, total_questions')
+          .eq('id', lessonId)
+          .single(),
+        supabase
+          .from('questions')
+          .select('id, question_number')
+          .eq('lesson_id', lessonId)
+          .order('question_number', { ascending: true }),
+      ])
 
+      const existing = existingResult.data
       if (existing) {
         alert('Bạn đã làm bài này rồi!')
         router.push('/dashboard')
         return
       }
 
-      // Lấy thông tin bài
-      const { data: lessonData, error: lessonError } = await supabase
-        .from('lessons')
-        .select('id, title, audio_url, passage, total_questions')
-        .eq('id', lessonId)
-        .single()
-
+      const lessonData = lessonResult.data
+      const lessonError = lessonResult.error
       if (lessonError || !lessonData) {
         alert('Không tìm thấy bài học')
         router.push('/dashboard')
         return
       }
 
-      const { data: questionsData } = await supabase
-        .from('questions')
-        .select('id, question_number')
-        .eq('lesson_id', lessonId)
-        .order('question_number', { ascending: true })
-
       setLesson(lessonData)
-      setQuestions(questionsData || [])
+      setQuestions(questionsResult.data || [])
       setLoading(false)
     }
 

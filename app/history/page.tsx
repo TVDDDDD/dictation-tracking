@@ -23,18 +23,16 @@ export default async function HistoryPage() {
     redirect("/login");
   }
 
-  // Lấy thông tin profile
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("*")
-    .eq("id", user.id)
-    .single();
-
-  // Lấy lịch sử làm bài + thông tin bài học
-  const { data: submissions, error: submissionsError } = await supabase
-    .from("submissions")
-    .select(
-      `
+  const [profileResult, submissionsResult] = await Promise.all([
+    supabase
+      .from("profiles")
+      .select("*")
+      .eq("id", user.id)
+      .single(),
+    supabase
+      .from("submissions")
+      .select(
+        `
       id,
       score,
       user_answer,
@@ -46,8 +44,13 @@ export default async function HistoryPage() {
       )
     `,
     )
-    .eq("user_id", user.id)
-    .order("submitted_at", { ascending: false });
+      .eq("user_id", user.id)
+      .order("submitted_at", { ascending: false }),
+  ]);
+
+  const profile = profileResult.data;
+  const submissions = submissionsResult.data;
+  const submissionsError = submissionsResult.error;
 
   if (submissionsError) {
     console.error("Không thể tải lịch sử làm bài:", submissionsError);

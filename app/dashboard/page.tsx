@@ -14,19 +14,21 @@ export default async function DashboardPage() {
     redirect("/login");
   }
 
-  // Lấy thông tin profile
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("*")
-    .eq("id", user.id)
-    .single();
+  const [profileResult, lessonsResult] = await Promise.all([
+    supabase
+      .from("profiles")
+      .select("*")
+      .eq("id", user.id)
+      .single(),
+    supabase
+      .from("lessons")
+      .select("*")
+      .eq("is_active", true)
+      .order("order_number", { ascending: true }),
+  ]);
 
-  // Lấy danh sách bài học
-  const { data: lessons } = await supabase
-    .from("lessons")
-    .select("*")
-    .eq("is_active", true)
-    .order("order_number", { ascending: true });
+  const profile = profileResult.data;
+  const lessons = lessonsResult.data;
 
   return (
     <div className="app-page">

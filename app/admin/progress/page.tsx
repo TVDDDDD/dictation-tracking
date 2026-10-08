@@ -42,34 +42,37 @@ export default async function ProgressPage() {
     redirect("/dashboard");
   }
 
-  // 1. Lấy tất cả bài đang active
-  const { data: lessons } = await supabase
-    .from("lessons")
-    .select("id, title, order_number")
-    .eq("is_active", true)
-    .order("order_number");
+  const [lessonsResult, studentsResult, submissions] = await Promise.all([
+    supabase
+      .from("lessons")
+      .select("id, title, order_number")
+      .eq("is_active", true)
+      .order("order_number"),
+    supabase
+      .from("profiles")
+      .select("id, full_name, msv, class_code")
+      .eq("role", "student")
+      .order("class_code")
+      .order("full_name"),
+    fetchAllFullSubmissions(),
+  ]);
 
-  const totalLessons = lessons?.length || 0;
+  const lessons = lessonsResult.data || [];
+  const students = studentsResult.data || [];
+  const totalLessons = lessons.length;
 
-  // 2. Lấy tất cả sinh viên
-  const { data: students } = await supabase
-    .from("profiles")
-    .select("id, full_name, msv, class_code")
-    .eq("role", "student")
-    .order("class_code")
-    .order("full_name");
-
-  // 3. Lấy TẤT CẢ submissions (phân trang tự động)
-  const submissions = await fetchAllFullSubmissions();
+  const submissionsByUserAndLesson = new Map<string, (typeof submissions)[number]>();
+  for (const submission of submissions) {
+    submissionsByUserAndLesson.set(
+      `${submission.user_id}:${submission.lesson_id}`,
+      submission,
+    );
+  }
 
   // 4. Tính tiến độ từng sinh viên
-  const progressList: StudentProgress[] = (students || []).map((student) => {
-    const studentSubs = (submissions || []).filter(
-      (s) => s.user_id === student.id,
-    );
-
-    const details = (lessons || []).map((lesson) => {
-      const sub = studentSubs.find((s) => s.lesson_id === lesson.id);
+  const progressList: StudentProgress[] = students.map((student) => {
+    const details = lessons.map((lesson) => {
+      const sub = submissionsByUserAndLesson.get(`${student.id}:${lesson.id}`);
       return {
         lesson_id: lesson.id,
         lesson_title: lesson.title,
