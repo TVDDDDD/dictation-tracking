@@ -4,6 +4,7 @@ import Link from "next/link";
 import AdminFilters from "./AdminFilters";
 import { fetchAllFullSubmissions } from "@/lib/fetch-all-submissions";
 import { vietnamDateToUTC, isValidDateString } from "@/lib/admin-utils";
+import BrandLogo from "@/app/components/BrandLogo";
 
 export default async function AdminPage({
   searchParams,
@@ -106,33 +107,22 @@ export default async function AdminPage({
   const exportUrl = `/api/admin/export?${exportParams.toString()}`;
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <header className="bg-white shadow">
-        <div className="max-w-7xl mx-auto px-4 py-4 flex justify-between items-center">
-          <div className="flex items-center gap-4">
-            <Link
-              href="/dashboard"
-              className="text-blue-600 hover:underline text-sm"
-            >
-              ← Dashboard
-            </Link>
-            <h1 className="text-xl font-bold text-purple-700">
-              Trang Quản trị (Admin)
-            </h1>
-            <Link
-              href="/admin/progress"
-              className="text-sm bg-indigo-600 text-white px-3 py-1.5 rounded hover:bg-indigo-700"
-            >
-              Xem tiến độ sinh viên
+    <div className="app-page">
+      <header className="topbar">
+        <div className="topbar-inner">
+          <div className="topbar-actions">
+            <BrandLogo href="/dashboard" kicker="TEACHER SPACE" />
+            <Link href="/admin/progress" className="button button-secondary">
+              Tiến độ sinh viên
             </Link>
           </div>
-          <span className="text-sm text-gray-600">
-            Admin: <strong>{profile.full_name}</strong>
+          <span className="user-chip">
+            Quản trị: <strong>{profile.full_name}</strong>
           </span>
         </div>
       </header>
 
-      <main className="max-w-7xl mx-auto px-4 py-8">
+      <main className="content-wrap">
         <AdminFilters
           classList={classList}
           lessons={lessons || []}

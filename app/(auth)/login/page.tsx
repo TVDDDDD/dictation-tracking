@@ -3,7 +3,8 @@
 import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
+import BrandLogo from "@/app/components/BrandLogo";
+import { AuthTransitionLink } from "@/app/components/AuthTransition";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
@@ -37,13 +38,7 @@ export default function LoginPage() {
   return (
     <main className="auth-shell">
       <aside className="auth-aside">
-        <Link href="/" className="brand-lockup">
-          <span className="brand-mark">D</span>
-          <span className="brand-copy">
-            <span className="brand-kicker">LISTEN · LEARN</span>
-            <span className="brand-name">Dictation Studio</span>
-          </span>
-        </Link>
+        <BrandLogo href="/" />
         <div className="auth-aside-copy">
           <span className="eyebrow">Phòng luyện nghe</span>
           <h1>Nghe kỹ hơn. Tiến bộ mỗi ngày.</h1>
@@ -100,7 +95,9 @@ export default function LoginPage() {
           </form>
           <p className="auth-switch">
             Chưa có tài khoản?{" "}
-            <Link href="/register">Tạo tài khoản học viên</Link>
+            <AuthTransitionLink href="/register">
+              Tạo tài khoản học viên
+            </AuthTransitionLink>
           </p>
         </div>
       </section>

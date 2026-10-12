@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import Link from "next/link";
+import BrandLogo from "@/app/components/BrandLogo";
 
 type LessonSummary = {
   title: string;
@@ -64,13 +65,11 @@ export default async function HistoryPage() {
             <Link href="/dashboard" className="button button-subtle">
               ← Dashboard
             </Link>
-            <Link href="/dashboard" className="brand-lockup">
-              <span className="brand-mark">D</span>
-              <span className="brand-copy">
-                <span className="brand-kicker">LEARNING RECORD</span>
-                <span className="brand-name">Lịch sử làm bài</span>
-              </span>
-            </Link>
+            <BrandLogo
+              href="/dashboard"
+              kicker="LEARNING RECORD"
+              name="Lịch sử làm bài"
+            />
           </div>
           <span className="user-chip">
             {profile?.full_name} {profile?.msv && `(${profile.msv})`}

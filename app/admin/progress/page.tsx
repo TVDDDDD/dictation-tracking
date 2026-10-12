@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { fetchAllFullSubmissions } from "@/lib/fetch-all-submissions";
+import BrandLogo from "@/app/components/BrandLogo";
 
 type StudentProgress = {
   id: string;
@@ -116,7 +117,11 @@ export default async function ProgressPage() {
             <Link href="/admin" className="button button-subtle">
               ← Quay lại Admin
             </Link>
-            <span className="brand-name">Tiến độ sinh viên</span>
+            <BrandLogo
+              href="/admin"
+              kicker="TEACHER SPACE"
+              name="Tiến độ sinh viên"
+            />
           </div>
           <span className="user-chip">
             Admin: <strong>{profile.full_name}</strong>

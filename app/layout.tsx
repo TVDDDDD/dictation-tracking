@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono, Noto_Serif } from "next/font/google";
+import { AuthTransitionProvider } from "./components/AuthTransition";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -20,6 +21,11 @@ const notoSerif = Noto_Serif({
 export const metadata: Metadata = {
   title: "Dictation Studio | Luyện nghe",
   description: "Nền tảng luyện nghe và theo dõi tiến độ học tập.",
+  icons: {
+    icon: "/dictation-mark.svg",
+    shortcut: "/dictation-mark.svg",
+    apple: "/dictation-mark.svg",
+  },
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
@@ -28,7 +34,9 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       lang="vi"
       className={`${geistSans.variable} ${geistMono.variable} ${notoSerif.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col">{children}</body>
+      <body className="min-h-full flex flex-col">
+        <AuthTransitionProvider>{children}</AuthTransitionProvider>
+      </body>
     </html>
   );
 }

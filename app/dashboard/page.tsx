@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import Link from "next/link";
+import BrandLogo from "@/app/components/BrandLogo";
 
 export default async function DashboardPage() {
   const supabase = await createClient();
@@ -34,20 +35,19 @@ export default async function DashboardPage() {
     <div className="app-page">
       <header className="topbar">
         <div className="topbar-inner">
-          <Link href="/dashboard" className="brand-lockup">
-            <span className="brand-mark">D</span>
-            <span className="brand-copy">
-              <span className="brand-kicker">LISTEN · LEARN</span>
-              <span className="brand-name">Dictation Studio</span>
-            </span>
-          </Link>
+          <BrandLogo href="/dashboard" />
 
           <div className="topbar-actions">
             {/* Nút Admin - chỉ hiện khi là admin */}
             {profile?.role === "admin" && (
-              <Link href="/admin" className="button button-secondary">
-                Quản Lý Sinh viên
-              </Link>
+              <>
+                <Link href="/admin" className="button button-secondary">
+                  Quản lý sinh viên
+                </Link>
+                <Link href="/admin/progress" className="button button-secondary">
+                  Tiến độ sinh viên
+                </Link>
+              </>
             )}
 
             <Link href="/history" className="button button-subtle">
@@ -60,7 +60,7 @@ export default async function DashboardPage() {
             </span>
 
             <form action="/auth/signout" method="post">
-              <button className="button button-subtle" type="submit">
+              <button className="button button-danger" type="submit">
                 Đăng xuất
               </button>
             </form>

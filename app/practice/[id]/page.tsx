@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/client'
 import { useRouter, useParams } from 'next/navigation'
 import Link from 'next/link'
 import { submitPractice } from './actions'
+import BrandLogo from '@/app/components/BrandLogo'
 
 type Question = {
   id: string
@@ -393,6 +394,7 @@ export default function PracticePage() {
               </span>
             )
           }
+
           const partOffset = textOffset
           textOffset += part.length
           return <span key={index}>{renderHighlightedText(part, partOffset)}</span>
@@ -469,25 +471,27 @@ export default function PracticePage() {
 
   return (
     <div className="min-h-screen bg-gray-100">
-      <header className="bg-white shadow px-6 py-4 flex justify-between items-center">
-        <div>
-          <Link href="/dashboard" className="text-blue-600 hover:underline text-sm">
-            ← Quay lại Dashboard
-          </Link>
-          <h1 className="text-xl font-bold mt-1">{lesson?.title}</h1>
-        </div>
-
-        {isSubmitted && result && (
-          <div className="text-right">
-            <p className="text-sm text-gray-600">Kết quả</p>
-            <p className="text-2xl font-bold text-blue-700">
-              {result.correct_count}/{result.total_questions} câu đúng
-            </p>
-            <p className="text-lg font-semibold text-green-600">
-              Điểm: {result.score}/10
-            </p>
+      <header className="practice-header">
+        <div className="practice-header-inner">
+          <div className="practice-header-brand">
+            <BrandLogo href="/dashboard" kicker="PRACTICE SESSION" />
+            <div className="practice-header-lesson">
+              <Link href="/dashboard" className="back-link">
+                ← Dashboard
+              </Link>
+              <h1 className="practice-title">{lesson?.title}</h1>
+            </div>
           </div>
-        )}
+
+          {isSubmitted && result && (
+            <div className="result-summary">
+              <p className="result-summary-label">Kết quả</p>
+              <p className="result-summary-value">
+                {result.correct_count}/{result.total_questions} câu · {result.score}/10
+              </p>
+            </div>
+          )}
+        </div>
       </header>
 
       <div className="max-w-6xl mx-auto p-6 grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -605,7 +609,7 @@ export default function PracticePage() {
                 <button
                   type="button"
                   onClick={() => setHighlights([])}
-                  className="rounded-md px-3 py-1.5 text-sm font-medium text-gray-600 hover:bg-gray-200"
+                  className="button button-danger button-small"
                 >
                   Xóa đánh dấu
                 </button>
