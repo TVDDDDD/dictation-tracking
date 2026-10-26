@@ -1,5 +1,6 @@
 export type SubmissionRow = {
   id: string
+  attempt_number: number | null
   score: number | null
   correct_count: number | null
   total_questions: number | null

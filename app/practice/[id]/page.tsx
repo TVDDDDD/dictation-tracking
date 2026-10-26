@@ -10,6 +10,7 @@ import BrandLogo from '@/app/components/BrandLogo'
 type Question = {
   id: string
   question_number: number
+  correct_answer?: string
 }
 
 type Lesson = {
@@ -42,6 +43,9 @@ export default function PracticePage() {
   const [correctAnswersMap, setCorrectAnswersMap] = useState<Record<number, string>>({})
   const [highlightMode, setHighlightMode] = useState(false)
   const [highlights, setHighlights] = useState<HighlightRange[]>([])
+  const [reviewAttempt, setReviewAttempt] = useState<number | null>(null)
+  const [makeupAttempt, setMakeupAttempt] = useState<number | null>(null)
+  const practiceSessionLoggedRef = useRef<number | null>(null)
   const lastTouchTapRef = useRef<{ time: number; x: number; y: number } | null>(null)
 
   // Audio
@@ -66,31 +70,39 @@ export default function PracticePage() {
         return
       }
 
-      const [existingResult, lessonResult, questionsResult] = await Promise.all([
-        supabase
-          .from('submissions')
-          .select('id')
-          .eq('user_id', user.id)
-          .eq('lesson_id', lessonId)
-          .maybeSingle(),
-        supabase
-          .from('lessons')
-          .select('id, title, audio_url, passage, total_questions')
-          .eq('id', lessonId)
-          .single(),
-        supabase
-          .from('questions')
-          .select('id, question_number')
-          .eq('lesson_id', lessonId)
-          .order('question_number', { ascending: true }),
-      ])
-
-      const existing = existingResult.data
-      if (existing) {
-        alert('Bạn đã làm bài này rồi!')
-        router.push('/dashboard')
-        return
-      }
+      const [profileResult, existingResults, lessonResult, questionsResult, accessResult, grantResult] =
+        await Promise.all([
+          supabase
+            .from('profiles')
+            .select('class_code')
+            .eq('id', user.id)
+            .maybeSingle(),
+          supabase
+            .from('submissions')
+            .select('id')
+            .eq('user_id', user.id)
+            .eq('lesson_id', lessonId),
+          supabase
+            .from('lessons')
+            .select('id, title, audio_url, passage, total_questions')
+            .eq('id', lessonId)
+            .single(),
+          supabase
+            .from('questions')
+            .select('id, question_number')
+            .eq('lesson_id', lessonId)
+            .order('question_number', { ascending: true }),
+          supabase
+            .from('lesson_access')
+            .select('id, class_code')
+            .eq('lesson_id', lessonId),
+          supabase
+            .from('makeup_grants')
+            .select('id')
+            .eq('user_id', user.id)
+            .eq('lesson_id', lessonId)
+            .maybeSingle(),
+        ])
 
       const lessonData = lessonResult.data
       const lessonError = lessonResult.error
@@ -100,8 +112,127 @@ export default function PracticePage() {
         return
       }
 
-      setLesson(lessonData)
+      const submissions = existingResults.data || []
+      const hasSubmission = submissions.length > 0
+      const classCode = (profileResult.data?.class_code || '').trim()
+      const lessonOpenForClass = (accessResult.data || []).some(
+        (a) => a.class_code === classCode
+      )
+      // Makeup grant "chưa dùng" = số submissions hiện có < 2
+      const hasUnusedGrant =
+        Boolean(grantResult.data) && submissions.length < 2
+
+      // Guard: chưa làm + bài chưa mở cho lớp + không có grant dùng được
+      // → redirect về dashboard (defense in depth, chặn vào thẳng URL)
+      if (!hasSubmission && !lessonOpenForClass && !hasUnusedGrant) {
+        alert('Bài chưa mở cho lớp của bạn')
+        router.push('/dashboard')
+        return
+      }
+
       setQuestions(questionsResult.data || [])
+      setLesson(lessonData)
+
+      // Ưu tiên (theo spec): grant chưa dùng → EXAM mode (làm lại, attempt mới).
+      // Còn hasSubmission → REVIEW mode (ôn tập, không tạo submission).
+      if (hasUnusedGrant) {
+        // Exam mode làm lại: để trống answers, nghe 1 lần, nút nộp hiện như thường.
+        setIsSubmitted(false)
+        setMakeupAttempt(submissions.length + 1)
+      } else if (hasSubmission) {
+        // CHẾ ĐỘ ÔN: đã nộp bài → vào ôn tập, không chấm lại
+        setIsSubmitted(true)
+        // Lấy kết quả gần nhất (attempt cuối) để hiển thị điểm + đáp án
+        const { data: latestSub } = await supabase
+          .from('submissions')
+          .select('score, percentage, correct_count, total_questions, user_answer, attempt_number')
+          .eq('user_id', user.id)
+          .eq('lesson_id', lessonId)
+          .order('attempt_number', { ascending: false })
+          .limit(1)
+          .maybeSingle()
+
+        if (latestSub) {
+          setResult({
+            correct_count: Number(latestSub.correct_count ?? 0),
+            total_questions: Number(latestSub.total_questions ?? 0),
+            score: Number(latestSub.score ?? 0),
+            percentage: Number(latestSub.percentage ?? 0),
+          })
+          // Hiển thị đáp án đúng + tô màu theo lần làm gần nhất
+          const rawAnswers: unknown = latestSub.user_answer
+          const userAnswers: Record<string, string> =
+            typeof rawAnswers === 'string'
+              ? JSON.parse(rawAnswers)
+              : rawAnswers && typeof rawAnswers === 'object'
+                ? (rawAnswers as Record<string, string>)
+                : {}
+          setAnswers(userAnswers)
+          if (Number(latestSub.attempt_number ?? 1) > 1) {
+            setReviewAttempt(Number(latestSub.attempt_number ?? 1))
+          }
+
+          // Pre-fill tô màu đúng/sai + đáp án từ submission_answers (dữ liệu
+          // đã chấm thật, không tính lại). Chỉ fetch ở CHẾ ĐỘ ÔN (đã nộp) —
+          // đáp án KHÔNG xuống client cho SV chưa nộp.
+          const { data: latestSubmissionId } = await supabase
+            .from('submissions')
+            .select('id')
+            .eq('user_id', user.id)
+            .eq('lesson_id', lessonId)
+            .order('attempt_number', { ascending: false })
+            .limit(1)
+            .maybeSingle()
+
+          if (latestSubmissionId) {
+            const { data: savedAnswers } = await supabase
+              .from('submission_answers')
+              .select('question_id, user_answer, is_correct, questions ( correct_answer )')
+              .eq('submission_id', latestSubmissionId)
+
+            const questionNumberById: Record<string, number> = {}
+            for (const q of questionsResult.data || []) {
+              questionNumberById[q.id] = q.question_number
+            }
+
+            const rMap: Record<number, boolean> = {}
+            const cMap: Record<number, string> = {}
+            for (const sa of savedAnswers || []) {
+              const qn = questionNumberById[sa.question_id]
+              if (qn == null) continue
+              rMap[qn] = Boolean(sa.is_correct)
+              const correct = Array.isArray(sa.questions)
+                ? sa.questions[0]?.correct_answer
+                : undefined
+              if (correct) cMap[qn] = correct
+            }
+            setResultsMap((prev) => ({ ...prev, ...rMap }))
+            setCorrectAnswersMap((prev) => ({ ...prev, ...cMap }))
+          }
+        }
+
+        // Log practice_session 1 lần khi vào chế độ ôn.
+        // Guard double-insert: (1) ref (theo lessonId) chặn StrictMode
+        // double-mount cùng bài + tránh stale khi chuyển /practice/1 → /practice/2;
+        // (2) DB: chỉ insert nếu không có dòng cùng user+lesson trong 10 phút.
+        if (practiceSessionLoggedRef.current !== lessonId) {
+          practiceSessionLoggedRef.current = lessonId
+          const { data: recentSessions } = await supabase
+            .from('practice_sessions')
+            .select('started_at')
+            .eq('user_id', user.id)
+            .eq('lesson_id', lessonId)
+            .gte('started_at', new Date(Date.now() - 10 * 60 * 1000).toISOString())
+            .limit(1)
+          if ((recentSessions || []).length === 0) {
+            await supabase.from('practice_sessions').insert({
+              user_id: user.id,
+              lesson_id: lessonId,
+            })
+          }
+        }
+      }
+
       setLoading(false)
     }
 
@@ -185,7 +316,7 @@ export default function PracticePage() {
   }
 
   const addHighlightFromSelection = () => {
-    if (isSubmitted) return
+    // Bật trong cả chế độ làm bài lẫn ôn tập (spec: tô sáng hoạt động ở chế độ ôn)
 
     const container = passageRef.current
     const selection = window.getSelection()
@@ -351,7 +482,7 @@ export default function PracticePage() {
     return (
       <div
         ref={passageRef}
-        className={`leading-8 text-gray-800 text-[15px] ${highlightMode && !isSubmitted ? 'highlight-selection-mode' : ''}`}
+        className={`leading-8 text-gray-800 text-[15px] ${highlightMode ? 'highlight-selection-mode' : ''}`}
         onDoubleClick={addHighlightFromSelection}
         onPointerUp={(event) => {
           if (highlightMode && event.pointerType !== 'touch') {
@@ -447,6 +578,11 @@ export default function PracticePage() {
         percentage: res.result.percentage,
       })
       setIsSubmitted(true)
+      if (makeupAttempt) {
+        // Nộp xong lượt makeup → sang chế độ ôn, giữ badge lần làm
+        setReviewAttempt(makeupAttempt)
+        setMakeupAttempt(null)
+      }
     }
 
     setSubmitting(false)
@@ -474,7 +610,16 @@ export default function PracticePage() {
       <header className="practice-header">
         <div className="practice-header-inner">
           <div className="practice-header-brand">
-            <BrandLogo href="/dashboard" kicker="PRACTICE SESSION" />
+            <BrandLogo
+              href="/dashboard"
+              kicker={
+                reviewAttempt
+                  ? 'REVIEW SESSION · LẦN ' + reviewAttempt
+                  : makeupAttempt
+                    ? 'MAKEUP SESSION · LẦN ' + makeupAttempt
+                    : 'PRACTICE SESSION'
+              }
+            />
             <div className="practice-header-lesson">
               <Link href="/dashboard" className="back-link">
                 ← Dashboard
@@ -595,7 +740,6 @@ export default function PracticePage() {
               <button
                 type="button"
                 onClick={() => setHighlightMode((enabled) => !enabled)}
-                disabled={isSubmitted}
                 aria-pressed={highlightMode}
                 className={`rounded-md px-3 py-1.5 text-sm font-medium transition ${
                   highlightMode

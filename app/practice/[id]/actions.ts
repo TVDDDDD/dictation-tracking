@@ -16,16 +16,68 @@ export async function submitPractice(
     return { success: false, message: 'Bạn chưa đăng nhập' }
   }
 
-  // 2. Kiểm tra đã làm bài này chưa
-  const { data: existing } = await supabase
-    .from('submissions')
-    .select('id')
-    .eq('user_id', user.id)
-    .eq('lesson_id', lessonId)
-    .maybeSingle()
+  // 2. Kiểm tra quyền làm bài: lesson_access (attempt 1) / makeup_grant (attempt >= 2)
+  const [profileResult, subsResult, grantResult] = await Promise.all([
+    supabase
+      .from('profiles')
+      .select('class_code')
+      .eq('id', user.id)
+      .maybeSingle(),
+    supabase
+      .from('submissions')
+      .select('id')
+      .eq('user_id', user.id)
+      .eq('lesson_id', lessonId),
+    supabase
+      .from('makeup_grants')
+      .select('id')
+      .eq('user_id', user.id)
+      .eq('lesson_id', lessonId)
+      .maybeSingle(),
+  ])
 
-  if (existing) {
-    return { success: false, message: 'Bạn đã làm bài này rồi' }
+  const existingCount = (subsResult.data || []).length
+  const attemptNumber = existingCount + 1
+
+  if (attemptNumber === 1) {
+    // Lần đầu: bài phải mở cho lớp của sinh viên, HOẶC có makeup grant
+    // chưa dùng (admin cấp trước khi SV làm) — defense in depth,
+    // chống gọi thẳng server action khi dashboard đã chặn
+    const classCode = (profileResult.data?.class_code || '').trim()
+    const grantUnused = Boolean(grantResult.data) && existingCount < 2
+    if (!grantUnused) {
+      if (!classCode) {
+        return {
+          success: false,
+          message: 'Bạn chưa có mã lớp, không thể làm bài này',
+        }
+      }
+      const { data: access } = await supabase
+        .from('lesson_access')
+        .select('id')
+        .eq('lesson_id', lessonId)
+        .eq('class_code', classCode)
+        .maybeSingle()
+      if (!access) {
+        return { success: false, message: 'Bài chưa mở cho lớp của bạn' }
+      }
+    }
+  } else {
+    // Làm lại (makeup): cần grant chưa dùng. "Chưa dùng" = số submissions
+    // hiện có cho cặp (user, lesson) < 2 (chưa có attempt 2).
+    const grantUnused = Boolean(grantResult.data) && existingCount < 2
+    if (!grantResult.data) {
+      return {
+        success: false,
+        message: 'Bạn chưa được cấp quyền làm lại bài này',
+      }
+    }
+    if (!grantUnused) {
+      return {
+        success: false,
+        message: 'Bạn đã sử dụng quyền làm lại của bài này rồi',
+      }
+    }
   }
 
   // 3. Lấy đáp án đúng từ database (chỉ server mới lấy được)
@@ -65,7 +117,7 @@ export async function submitPractice(
   const percentage = totalQuestions > 0 ? (correctCount / totalQuestions) * 100 : 0
   const score = Math.round((correctCount / totalQuestions) * 10 * 10) / 10 // thang 10
 
-  // 5. Lưu submission
+  // 5. Lưu submission (attempt_number = số submissions hiện có + 1)
   const { data: submission, error: subError } = await supabase
     .from('submissions')
     .insert({
@@ -76,7 +128,8 @@ export async function submitPractice(
       score: score,
       percentage: percentage,
       listen_count: listenCount,
-      user_answer: JSON.stringify(answers)
+      user_answer: JSON.stringify(answers),
+      attempt_number: attemptNumber
     })
     .select()
     .single()

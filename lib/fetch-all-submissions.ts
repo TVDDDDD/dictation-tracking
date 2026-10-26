@@ -4,6 +4,7 @@ export type FullSubmission = {
   id: string
   user_id: string
   lesson_id: number
+  attempt_number: number | null
   score: number | null
   correct_count: number | null
   total_questions: number | null
@@ -46,6 +47,7 @@ export async function fetchAllFullSubmissions(
         id,
         user_id,
         lesson_id,
+        attempt_number,
         score,
         correct_count,
         total_questions,

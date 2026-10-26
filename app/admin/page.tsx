@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import AdminFilters from "./AdminFilters";
+import LessonAccessPanel from "./LessonAccessPanel";
 import { fetchAllFullSubmissions } from "@/lib/fetch-all-submissions";
 import { vietnamDateToUTC, isValidDateString } from "@/lib/admin-utils";
 import BrandLogo from "@/app/components/BrandLogo";
@@ -129,7 +130,10 @@ export default async function AdminPage({
           currentParams={params}
         />
 
-        {/* Thống kê */}
+        {/* Panel quản lý: ma trận mở bài theo lớp + cấp makeup */}
+      <LessonAccessPanel lessons={lessons || []} classList={classList} />
+
+      {/* Thống kê */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
           <div className="bg-white p-5 rounded-lg shadow">
             <p className="text-sm text-gray-500">Số bài nộp (đang lọc)</p>
@@ -168,6 +172,7 @@ export default async function AdminPage({
                 <th className="px-4 py-3">Câu đúng</th>
                 <th className="px-4 py-3">Điểm</th>
                 <th className="px-4 py-3">Nghe</th>
+                <th className="px-4 py-3">Lượt</th>
                 <th className="px-4 py-3">Thời gian nộp</th>
               </tr>
             </thead>
@@ -205,6 +210,7 @@ export default async function AdminPage({
                       </span>
                     </td>
                     <td className="px-4 py-3">{item.listen_count ?? 0} lần</td>
+                    <td className="px-4 py-3">{item.attempt_number ?? 1}</td>
                     <td className="px-4 py-3 text-gray-600">
                       {new Date(item.submitted_at).toLocaleString("vi-VN")}
                     </td>
@@ -213,7 +219,7 @@ export default async function AdminPage({
               ) : (
                 <tr>
                   <td
-                    colSpan={8}
+                    colSpan={9}
                     className="px-4 py-8 text-center text-gray-500"
                   >
                     Không có dữ liệu phù hợp với bộ lọc.

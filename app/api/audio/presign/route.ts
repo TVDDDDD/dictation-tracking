@@ -46,17 +46,48 @@ export async function POST(request: NextRequest) {
         }
 
         if (mode === 'exam') {
-            const { data: submission, error: submissionError } = await supabase
-                .from('submissions')
-                .select('id')
-                .eq('user_id', user.id)
-                .eq('lesson_id', lessonId)
+            // Guard: bài phải mở cho lớp của SV (hoặc có makeup grant chưa dùng)
+            const { data: profile } = await supabase
+                .from('profiles')
+                .select('class_code')
+                .eq('id', user.id)
                 .maybeSingle()
+            const classCode = (profile?.class_code || '').trim()
 
-            if (submissionError) {
-                return NextResponse.json({ error: submissionError.message }, { status: 500 })
+            const [accessRows, subRows, grant] = await Promise.all([
+                supabase
+                    .from('lesson_access')
+                    .select('class_code')
+                    .eq('lesson_id', lessonId),
+                supabase
+                    .from('submissions')
+                    .select('id')
+                    .eq('user_id', user.id)
+                    .eq('lesson_id', lessonId),
+                supabase
+                    .from('makeup_grants')
+                    .select('id')
+                    .eq('user_id', user.id)
+                    .eq('lesson_id', lessonId)
+                    .maybeSingle(),
+            ])
+
+            const openForClass = (accessRows.data || []).some(
+                (a) => a.class_code === classCode
+            )
+
+            const subCount = subRows.data?.length ?? 0
+            const unusedGrant = (grant.data ? 1 : 0) > 0 && subCount < 2
+
+            if (!openForClass && !unusedGrant) {
+                return NextResponse.json(
+                    { error: 'Bài chưa mở cho lớp của bạn' },
+                    { status: 403 }
+                )
             }
-            if (submission) {
+
+            // Đã có submission → chỉ cho nghe lại khi có makeup grant chưa dùng
+            if (subCount >= 1 && !unusedGrant) {
                 return NextResponse.json(
                     { error: 'Bạn đã nộp bài này rồi' },
                     { status: 403 }
@@ -85,12 +116,12 @@ export async function POST(request: NextRequest) {
                 .select('id')
                 .eq('user_id', user.id)
                 .eq('lesson_id', lessonId)
-                .maybeSingle()
+                .limit(1)
 
             if (submissionError) {
                 return NextResponse.json({ error: submissionError.message }, { status: 500 })
             }
-            if (!submission) {
+            if (!submission || submission.length === 0) {
                 return NextResponse.json(
                     { error: 'Bạn cần nộp bài trước khi nghe lại' },
                     { status: 403 }

@@ -22,6 +22,12 @@ export default function RegisterPage() {
     setLoading(true);
     setMessage("");
 
+    if (!classCode.trim()) {
+      setMessage("Mã lớp là bắt buộc. Vui lòng nhập mã lớp của bạn.");
+      setLoading(false);
+      return;
+    }
+
     const { error } = await supabase.auth.signUp({
       email,
       password,
@@ -29,7 +35,7 @@ export default function RegisterPage() {
         data: {
           full_name: fullName,
           msv: msv,
-          class_code: classCode,
+          class_code: classCode.trim(),
           role: "student",
         },
       },

@@ -39,6 +39,7 @@ export default async function HistoryPage() {
       user_answer,
       listen_count,
       submitted_at,
+      attempt_number,
       lessons (
         title,
         order_number
@@ -109,6 +110,8 @@ export default async function HistoryPage() {
                       </h2>
                       <p className="history-meta">
                         {lesson?.order_number != null && `Bài số ${lesson.order_number} • `}
+                        {Number(item.attempt_number ?? 1) > 1 &&
+                          `Lượt ${item.attempt_number} (makeup) • `}
                         Ngày làm: {new Date(item.submitted_at).toLocaleString("vi-VN")}
                       </p>
                     </div>
