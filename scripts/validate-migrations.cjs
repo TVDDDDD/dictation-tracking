@@ -298,6 +298,31 @@ const SET_UID = (uid) =>
     await as(ADMIN, `update public.profiles set msv='MSV001' where id='${STUD_A}'`);
   }
 
+  // 3d. User mới tự insert profile với role='admin' → CHẶN (chỉ được role='student')
+  const NEW_USER = 'eeeeeeee-0000-0000-0000-00000000000e';
+  {
+    const rBad = await tryRun(
+      NEW_USER,
+      `insert into public.profiles (id, full_name, msv, class_code, role)
+       values ('${NEW_USER}', 'X', 'MSV-X', 'A', 'admin')`
+    );
+    check(
+      'escalation: user tự insert profile role=admin BỊ CHẶN',
+      rBad.rowCount === 0,
+      rBad.error ? rBad.error.code : `rowCount=${rBad.rowCount}`
+    );
+    const rOk = await tryRun(
+      NEW_USER,
+      `insert into public.profiles (id, full_name, msv, class_code, role)
+       values ('${NEW_USER}', 'X', 'MSV-X', 'A', 'student')`
+    );
+    check(
+      'user tự insert profile role=student OK (flow đăng ký)',
+      rOk.rowCount === 1,
+      rOk.error ? rOk.error.code : `rowCount=${rOk.rowCount}`
+    );
+  }
+
   // 4. Sau khi có grant: SV A insert attempt 2 → OK (rowCount=1)
   {
     const r = await tryRun(

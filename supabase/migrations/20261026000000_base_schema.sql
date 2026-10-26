@@ -109,7 +109,10 @@ create policy "Users can read own profile" on public.profiles
 drop policy if exists "Users can insert own profile" on public.profiles;
 create policy "Users can insert own profile" on public.profiles
   for insert to authenticated
-  with check ((select auth.uid()) = id);
+  -- Người dùng tự insert HẠCH role='student'. Muốn tạo admin: đăng ký
+  -- (role student) rồi admin UPDATE role='admin' (policy bên dưới) hoặc
+  -- SQL dashboard. Ngăn user tự thăng cấp.
+  with check ((select auth.uid()) = id and role = 'student');
 
 drop policy if exists "Users can update own profile" on public.profiles;
 
