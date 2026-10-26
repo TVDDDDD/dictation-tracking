@@ -176,16 +176,41 @@ const SET_UID = (uid) =>
       return { ok: false, rowCount: 0, error: e };
     }
   };
-  // 1. Student A: insert submission attempt 1 (đủ điều kiện RLS: own + attempt=1)
+  // 0. Admin mở L1 cho lớp A (điều kiện của attempt 1)
   try {
     await as(
+      ADMIN,
+      `insert into public.lesson_access (lesson_id, class_code, granted_by)
+       values (1, 'A', '${ADMIN}')`
+    );
+    check('RLS: admin insert lesson_access OK', true);
+  } catch (e) {
+    check('RLS: admin insert lesson_access OK', false, e.message);
+  }
+
+  // 1. Student A (lớp A, bài đã mở): insert attempt 1 → OK
+  {
+    const r = await tryRun(
       STUD_A,
       `insert into public.submissions (user_id, lesson_id, correct_count, total_questions, score, user_answer, attempt_number)
        values ('${STUD_A}', 1, 1, 1, 10, '{}'::json, 1)`
     );
-    check('RLS: SV A insert attempt 1 OK', true);
-  } catch (e) {
-    check('RLS: SV A insert attempt 1 OK', false, e.message);
+    check('RLS: SV A insert attempt 1 (bài mở cho lớp mình) OK', r.rowCount === 1, r.error ? r.error.code : `rowCount=${r.rowCount}`);
+  }
+
+  // 1a. Student B (lớp B chưa mở, không grant): insert attempt 1 → CHẶN
+  // (anti bypass REST: SV không thể tự tạo submission bài chưa mở)
+  {
+    const r = await tryRun(
+      STUD_B,
+      `insert into public.submissions (user_id, lesson_id, attempt_number)
+       values ('${STUD_B}', 1, 1)`
+    );
+    check(
+      'RLS: SV B insert attempt 1 bài chưa mở BỊ CHẶN (anti bypass REST)',
+      r.rowCount === 0,
+      r.error ? r.error.code : `rowCount=${r.rowCount}`
+    );
   }
 
   // 2. Student A: insert attempt 2 KHÔNG có grant → CHẶN (silent, rowCount=0)
@@ -309,17 +334,7 @@ const SET_UID = (uid) =>
     );
   }
 
-  // 6. lesson_access: admin mở L1 cho lớp A; SV A đọc thấy, SV B không thấy
-  try {
-    await as(
-      ADMIN,
-      `insert into public.lesson_access (lesson_id, class_code, granted_by)
-       values (1, 'A', '${ADMIN}')`
-    );
-    check('RLS: admin insert lesson_access OK', true);
-  } catch (e) {
-    check('RLS: admin insert lesson_access OK', false, e.message);
-  }
+  // 6. lesson_access: đã insert ở test 0; kiểm tra đọc + audit join
   {
     const r = await tryRun(
       STUD_A,

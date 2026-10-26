@@ -162,15 +162,34 @@ end
 $$;
 
 -- RLS: sinh viên chỉ insert được:
---  - attempt 1 (lần đầu, cần lesson_access/makeup_grant ở tầng app), HOẶC
---  - attempt 2 có makeup_grant (makeup, tối đa 1 lượt làm lại → chặn attempt >= 3)
+--  - attempt 1: BÀI PHẢI MỞ CHO LỚP CỦA MÌNH (lesson_access) HOẶC có
+--    makeup_grant (admin cấp trước khi SV làm lần đầu)
+--  - attempt 2: cần makeup_grants (tối đa 1 lượt makeup → chặn attempt >= 3)
+-- (chặn SV gọi thẳng PostgREST tạo submission cho bài chưa mở)
 drop policy if exists "Users can insert own submissions" on public.submissions;
 create policy "Users can insert own submissions" on public.submissions
   for insert to authenticated
   with check ((select auth.uid()) = user_id
-    and (attempt_number = 1
-      or (attempt_number = 2 and exists (
+    and (
+      (attempt_number = 1 and (
+        exists (
+          select 1 from public.lesson_access la
+          where la.lesson_id = lesson_id
+            and la.class_code = (
+              select p.class_code from public.profiles p
+              where p.id = (select auth.uid())
+            )
+        )
+        or exists (
+          select 1 from public.makeup_grants m
+          where m.user_id = (select auth.uid())
+            and m.lesson_id = lesson_id
+        )
+      ))
+      or
+      (attempt_number = 2 and exists (
         select 1 from public.makeup_grants m
         where m.user_id = (select auth.uid())
           and m.lesson_id = lesson_id
-      ))));
+      ))
+    ));
