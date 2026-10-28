@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { toggleLessonAccess, grantMakeup } from "./actions";
 
@@ -41,6 +41,8 @@ function fmtDate(iso: string) {
   return new Date(iso).toLocaleString("vi-VN");
 }
 
+const PAGE_SIZE = 10;
+
 export default function LessonAccessPanel({ lessons, classList }: Props) {
   const supabase = createClient();
 
@@ -48,6 +50,10 @@ export default function LessonAccessPanel({ lessons, classList }: Props) {
   const [refresh, setRefresh] = useState(0);
   const [busy, setBusy] = useState<string | null>(null);
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
+
+  // Dropdown state
+  const [selectedClass, setSelectedClass] = useState<string>(() => classList[0] || "");
+  const [currentPage, setCurrentPage] = useState(1);
 
   const lessonIds = lessons.map((l) => l.id).join(",");
 
@@ -71,6 +77,23 @@ export default function LessonAccessPanel({ lessons, classList }: Props) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [refresh, supabase, lessonIds]);
 
+  // Filter lessons for selected class
+  const filteredLessons = useMemo(() => {
+    return lessons.filter(() => true); // Show all lessons, just with open/closed status
+  }, [lessons]);
+
+  // Pagination
+  const totalPages = Math.ceil(filteredLessons.length / PAGE_SIZE);
+  const paginatedLessons = useMemo(() => {
+    const start = (currentPage - 1) * PAGE_SIZE;
+    return filteredLessons.slice(start, start + PAGE_SIZE);
+  }, [filteredLessons, currentPage]);
+
+  // Reset page when class changes
+  useEffect(() => {
+    setTimeout(() => setCurrentPage(1), 0);
+  }, [selectedClass]);
+
   const handleToggle = async (
     lesson: Lesson,
     classCode: string,
@@ -88,6 +111,27 @@ export default function LessonAccessPanel({ lessons, classList }: Props) {
         : res.message,
     });
     setRefresh((n) => n + 1);
+  };
+
+  // Bulk open/close all
+  const handleBulkToggle = async (open: boolean) => {
+    if (!selectedClass) return;
+    const key = `bulk:${selectedClass}:${open ? 'open' : 'close'}`;
+    setBusy(key);
+    setMsg(null);
+    try {
+      for (const lesson of lessons) {
+        const res = await toggleLessonAccess(lesson.id, selectedClass, open);
+        if (!res.success) {
+          throw new Error(res.message);
+        }
+      }
+      setMsg({ ok: true, text: `Đã ${open ? 'mở' : 'đóng'} tất cả bài cho lớp ${selectedClass}` });
+      setRefresh((n) => n + 1);
+    } catch (e) {
+      setMsg({ ok: false, text: e instanceof Error ? e.message : 'Có lỗi xảy ra' });
+    }
+    setBusy(null);
   };
 
   // ---- Makeup ----
@@ -167,78 +211,155 @@ export default function LessonAccessPanel({ lessons, classList }: Props) {
 
   return (
     <div className="bg-white rounded-lg shadow p-5 mb-6 space-y-6">
-      {/* ===== Ma trận mở bài theo lớp ===== */}
+      {/* ===== Dropdown chọn lớp + bảng bài của lớp đó ===== */}
       <div>
         <h2 className="text-lg font-semibold mb-1">Mở/đóng bài theo lớp</h2>
         <p className="text-sm text-gray-500 mb-3">
-          Bật ô để mở bài cho lớp đó; tắt để đóng. Bài chưa mở sẽ hiện
-          trạng thái &quot;Chưa mở&quot; trên dashboard sinh viên.
+          Chọn lớp → bảng dưới hiển thị các bài của lớp đó. Bật/tắt từng bài.
         </p>
 
-        {lessons.length === 0 || classList.length === 0 ? (
-          <p className="text-sm text-gray-500">
-            Chưa có bài đang mở hoặc chưa có sinh viên có mã lớp.
-          </p>
+        {classList.length === 0 ? (
+          <p className="text-sm text-gray-500">Chưa có sinh viên có mã lớp.</p>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="min-w-full text-sm">
-              <thead className="bg-gray-100 text-left">
-                <tr>
-                  <th className="px-4 py-3">Bài</th>
+          <div className="space-y-4">
+            {/* Dropdown chọn lớp */}
+            <div className="flex flex-wrap items-center gap-4">
+              <div className="flex items-center gap-2">
+                <label htmlFor="class-select" className="text-sm font-medium text-gray-700">
+                  Chọn lớp:
+                </label>
+                <select
+                  id="class-select"
+                  value={selectedClass}
+                  onChange={(e) => setSelectedClass(e.target.value)}
+                  className="field-control"
+                  style={{ width: 220 }}
+                  disabled={classList.length === 0}
+                >
                   {classList.map((c) => (
-                    <th key={c} className="px-4 py-3 text-center">
+                    <option key={c} value={c}>
                       {c}
-                    </th>
+                    </option>
                   ))}
-                </tr>
-              </thead>
-              <tbody>
-                {lessons.map((lesson) => (
-                  <tr key={lesson.id} className="border-t">
-                    <td className="px-4 py-3 font-medium">
-                      Bài {lesson.order_number} — {lesson.title}
-                    </td>
-                    {classList.map((classCode) => {
-                      const cell = access.find(
-                        (a) =>
-                          a.lesson_id === lesson.id &&
-                          a.class_code === classCode,
-                      );
-                      const open = Boolean(cell);
-                      const key = `${lesson.id}:${classCode}`;
+                </select>
+              </div>
 
-                      return (
-                        <td
-                          key={classCode}
-                          className="px-4 py-3 text-center align-top"
-                        >
-                          <button
-                            onClick={() =>
-                              handleToggle(lesson, classCode, open)
-                            }
-                            disabled={busy === key}
-                            aria-pressed={open}
-                            className={`rounded-md px-3 py-1.5 text-sm font-medium transition ${
-                              open
-                                ? "bg-green-600 text-white hover:bg-green-700"
-                                : "border border-gray-300 bg-white text-gray-500 hover:bg-gray-100"
-                            } disabled:opacity-50`}
-                          >
-                            {open ? "✓ Mở" : "Đóng"}
-                          </button>
-                          {cell && (
-                            <p className="mt-1 text-[11px] text-gray-400">
-                              {cell.profiles?.[0]?.full_name || "Admin"} ·{" "}
-                              {fmtDate(cell.granted_at)}
-                            </p>
-                          )}
-                        </td>
-                      );
-                    })}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+              {/* Bulk actions */}
+              <div className="flex gap-2 ml-auto">
+                <button
+                  onClick={() => handleBulkToggle(true)}
+                  disabled={busy?.startsWith('bulk:') || lessons.length === 0}
+                  className="button button-secondary button-small"
+                  title="Mở tất cả bài cho lớp này"
+                >
+                  Mở tất cả
+                </button>
+                <button
+                  onClick={() => handleBulkToggle(false)}
+                  disabled={busy?.startsWith('bulk:') || lessons.length === 0}
+                  className="button button-secondary button-small"
+                  title="Đóng tất cả bài cho lớp này"
+                >
+                  Đóng tất cả
+                </button>
+              </div>
+            </div>
+
+            {/* Bảng bài của lớp được chọn */}
+            {lessons.length === 0 ? (
+              <p className="text-sm text-gray-500">Chưa có bài học nào.</p>
+            ) : (
+              <>
+                <div className="overflow-x-auto">
+                  <table className="min-w-full text-sm">
+                    <thead className="bg-gray-100 text-left">
+                      <tr>
+                        <th className="px-4 py-3">Bài</th>
+                        <th className="px-4 py-3 text-center w-32">Trạng thái</th>
+                        <th className="px-4 py-3 text-center w-40">Admin mở</th>
+                        <th className="px-4 py-3 text-center w-40">Thời gian</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {paginatedLessons.map((lesson) => {
+                        const cell = access.find(
+                          (a) =>
+                            a.lesson_id === lesson.id &&
+                            a.class_code === selectedClass,
+                        );
+                        const open = Boolean(cell);
+                        const key = `${lesson.id}:${selectedClass}`;
+
+                        return (
+                          <tr key={lesson.id} className="border-t">
+                            <td className="px-4 py-3 font-medium">
+                              Bài {lesson.order_number} — {lesson.title}
+                            </td>
+                            <td className="px-4 py-3 text-center align-top">
+                              <button
+                                onClick={() =>
+                                  handleToggle(lesson, selectedClass, open)
+                                }
+                                disabled={busy === key}
+                                aria-pressed={open}
+                                className={`rounded-md px-3 py-1.5 text-sm font-medium transition ${
+                                  open
+                                    ? "bg-green-600 text-white hover:bg-green-700"
+                                    : "border border-gray-300 bg-white text-gray-500 hover:bg-gray-100"
+                                } disabled:opacity-50`}
+                              >
+                                {open ? "✓ Mở" : "Đóng"}
+                              </button>
+                            </td>
+                            <td className="px-4 py-3 text-center align-top">
+                              {cell ? (
+                                <span className="text-xs text-gray-600">
+                                  {cell.profiles?.[0]?.full_name || "Admin"}
+                                </span>
+                              ) : (
+                                <span className="text-xs text-gray-400">—</span>
+                              )}
+                            </td>
+                            <td className="px-4 py-3 text-center align-top">
+                              {cell ? (
+                                <span className="text-xs text-gray-400">{fmtDate(cell.granted_at)}</span>
+                              ) : (
+                                <span className="text-xs text-gray-400">—</span>
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* Pagination */}
+                {totalPages > 1 && (
+                  <div className="flex items-center justify-between mt-4 pt-3 border-t">
+                    <p className="text-sm text-gray-500">
+                      Trang {currentPage} / {totalPages} · Tổng {filteredLessons.length} bài
+                    </p>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                        disabled={currentPage === 1 || Boolean(busy)}
+                        className="button button-secondary button-small"
+                      >
+                        ← Trước
+                      </button>
+                      <button
+                        onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                        disabled={currentPage === totalPages || Boolean(busy)}
+                        className="button button-secondary button-small"
+                      >
+                        Sau →
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </>
+            )}
           </div>
         )}
       </div>

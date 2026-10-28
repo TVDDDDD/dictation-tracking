@@ -151,14 +151,22 @@ export default async function AdminPage({
           </div>
         </div>
 
-        <div className="flex justify-between items-center mb-4">
+        <div className="flex justify-between items-center mb-4 flex-wrap gap-3">
           <h2 className="text-xl font-semibold">Chi tiết bài làm</h2>
-          <a
-            href={exportUrl}
-            className="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 text-sm font-medium"
-          >
-            ↓ Xuất CSV
-          </a>
+          <div className="flex gap-3">
+            <a
+              href={exportUrl}
+              className="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 text-sm font-medium"
+            >
+              ↓ Xuất CSV bài làm
+            </a>
+            <a
+              href="/api/admin/export-practice"
+              className="bg-amber-600 text-white px-4 py-2 rounded-md hover:bg-amber-700 text-sm font-medium"
+            >
+              ↓ Xuất CSV ôn tập
+            </a>
+          </div>
         </div>
 
         <div className="bg-white rounded-lg shadow overflow-x-auto">

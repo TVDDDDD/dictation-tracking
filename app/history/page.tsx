@@ -35,6 +35,7 @@ export default async function HistoryPage() {
       .select(
         `
       id,
+      lesson_id,
       score,
       user_answer,
       listen_count,
@@ -45,7 +46,7 @@ export default async function HistoryPage() {
         order_number
       )
     `,
-    )
+      )
       .eq("user_id", user.id)
       .order("submitted_at", { ascending: false }),
   ]);
@@ -97,32 +98,43 @@ export default async function HistoryPage() {
             </p>
           </div>
         ) : submissions && submissions.length > 0 ? (
-          <div className="history-list">
+          <div className="history-grid">
             {submissions.map((item) => {
               const lesson = getLessonSummary(item.lessons);
+              const score = Number(item.score ?? 0);
+              const scoreColor =
+                score >= 8 ? 'text-green-600' : score >= 5 ? 'text-yellow-600' : 'text-red-600';
+              const attemptBadge = Number(item.attempt_number ?? 1) > 1
+                ? <span className="ml-2 inline-block px-2 py-0.5 text-xs bg-gray-100 text-gray-600 rounded">Lượt {item.attempt_number} (makeup)</span>
+                : null;
 
               return (
-                <article key={item.id} className="history-row">
-                  <div>
-                    <div>
+                <Link
+                  key={item.id}
+                  href={`/practice/${lesson?.order_number ?? item.lesson_id}?mode=result&attempt=${item.attempt_number}`}
+                  className="history-card"
+                >
+                  <article className="history-card-inner">
+                    <div className="history-left">
                       <h2 className="history-title">
                         {lesson?.title || "Bài không xác định"}
                       </h2>
                       <p className="history-meta">
                         {lesson?.order_number != null && `Bài số ${lesson.order_number} • `}
-                        {Number(item.attempt_number ?? 1) > 1 &&
-                          `Lượt ${item.attempt_number} (makeup) • `}
+                        {attemptBadge}
                         Ngày làm: {new Date(item.submitted_at).toLocaleString("vi-VN")}
                       </p>
                     </div>
-                    <div>
-                      <p className="history-score">{item.score}/10</p>
+                    <div className="history-right">
+                      <p className={`history-score ${scoreColor}`}>
+                        {item.score}/10
+                      </p>
                       <p className="history-score-label">
                         Nghe {item.listen_count} lần
                       </p>
                     </div>
-                  </div>
-                </article>
+                  </article>
+                </Link>
               );
             })}
           </div>

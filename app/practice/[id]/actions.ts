@@ -3,6 +3,74 @@
 import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 
+// ===== Lấy đáp án đúng cho chế độ ôn tập (chỉ cho phép khi đã có submission) =====
+export async function getPracticeAnswers(lessonId: number) {
+  const supabase = await createClient()
+
+  const { data: { user }, error: authError } = await supabase.auth.getUser()
+  if (authError || !user) {
+    return { success: false, message: 'Bạn chưa đăng nhập' }
+  }
+
+  // Guard: chỉ cho phép khi đã có submission (đã nộp bài ít nhất 1 lần)
+  const { data: subs, error: subError } = await supabase
+    .from('submissions')
+    .select('id')
+    .eq('user_id', user.id)
+    .eq('lesson_id', lessonId)
+    .limit(1)
+
+  if (subError || !subs || subs.length === 0) {
+    return { success: false, message: 'Chưa có bài làm nào, không thể xem đáp án ôn tập' }
+  }
+
+  // Lấy đáp án đúng từ questions
+  const { data: questions, error: qError } = await supabase
+    .from('questions')
+    .select('id, question_number, correct_answer')
+    .eq('lesson_id', lessonId)
+    .order('question_number')
+
+  if (qError || !questions || questions.length === 0) {
+    return { success: false, message: 'Không tìm thấy câu hỏi của bài này' }
+  }
+
+  const answersMap: Record<number, string> = {}
+  for (const q of questions) {
+    answersMap[q.question_number] = q.correct_answer
+  }
+
+  return { success: true, answers: answersMap }
+}
+
+// ===== Kiểm tra giới hạn ôn tập (tối đa 5 lần) =====
+export async function checkPracticeLimit(lessonId: number) {
+  const supabase = await createClient()
+
+  const { data: { user }, error: authError } = await supabase.auth.getUser()
+  if (authError || !user) {
+    return { success: false, message: 'Bạn chưa đăng nhập', count: 0 }
+  }
+
+  const { count, error } = await supabase
+    .from('practice_sessions')
+    .select('id', { count: 'exact', head: true })
+    .eq('user_id', user.id)
+    .eq('lesson_id', lessonId)
+
+  if (error) {
+    return { success: false, message: 'Lỗi kiểm tra giới hạn', count: 0 }
+  }
+
+  const currentCount = count || 0
+  return {
+    success: true,
+    count: currentCount,
+    allowed: currentCount < 5,
+    remaining: Math.max(0, 5 - currentCount)
+  }
+}
+
 export async function submitPractice(
   lessonId: number,
   answers: Record<number, string>, // { 1: "câu trả lời", 2: "..." }

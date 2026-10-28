@@ -2,9 +2,9 @@
 
 import { useEffect, useState, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { useRouter, useParams } from 'next/navigation'
+import { useRouter, useParams, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
-import { submitPractice } from './actions'
+import { submitPractice, getPracticeAnswers, checkPracticeLimit } from './actions'
 import BrandLogo from '@/app/components/BrandLogo'
 
 type Question = {
@@ -25,6 +25,9 @@ type HighlightRange = {
   start: number
   end: number
 }
+
+type PostSubmitMode = 'result' | 'practice' | null
+type PracticePhase = 'answering' | 'checked'
 
 export default function PracticePage() {
   const [lesson, setLesson] = useState<Lesson | null>(null)
@@ -48,6 +51,13 @@ export default function PracticePage() {
   const practiceSessionLoggedRef = useRef<number | null>(null)
   const lastTouchTapRef = useRef<{ time: number; x: number; y: number } | null>(null)
 
+  // Post-submit UX states
+  const [postMode, setPostMode] = useState<PostSubmitMode>('result')
+  const [practicePhase, setPracticePhase] = useState<PracticePhase>('answering')
+  const [practiceAnswers, setPracticeAnswers] = useState<Record<number, string>>({})
+  const [practiceLimit, setPracticeLimit] = useState<{ count: number; allowed: boolean; remaining: number } | null>(null)
+  const [practiceAnswersFetched, setPracticeAnswersFetched] = useState(false)
+
   // Audio
   const audioRef = useRef<HTMLAudioElement>(null)
   const passageRef = useRef<HTMLDivElement>(null)
@@ -59,8 +69,13 @@ export default function PracticePage() {
 
   const router = useRouter()
   const params = useParams()
+  const searchParams = useSearchParams()
   const lessonId = Number(params.id)
   const supabase = createClient()
+
+  // Parse URL params for mode and attempt
+  const urlMode = searchParams.get('mode')
+  const urlAttempt = searchParams.get('attempt')
 
   useEffect(() => {
     const fetchData = async () => {
@@ -118,12 +133,10 @@ export default function PracticePage() {
       const lessonOpenForClass = (accessResult.data || []).some(
         (a) => a.class_code === classCode
       )
-      // Makeup grant "chưa dùng" = số submissions hiện có < 2
       const hasUnusedGrant =
         Boolean(grantResult.data) && submissions.length < 2
 
       // Guard: chưa làm + bài chưa mở cho lớp + không có grant dùng được
-      // → redirect về dashboard (defense in depth, chặn vào thẳng URL)
       if (!hasSubmission && !lessonOpenForClass && !hasUnusedGrant) {
         alert('Bài chưa mở cho lớp của bạn')
         router.push('/dashboard')
@@ -133,12 +146,27 @@ export default function PracticePage() {
       setQuestions(questionsResult.data || [])
       setLesson(lessonData)
 
-      // Ưu tiên (theo spec): grant chưa dùng → EXAM mode (làm lại, attempt mới).
-      // Còn hasSubmission → REVIEW mode (ôn tập, không tạo submission).
+      // Check practice limit for UI
+      const limitRes = await checkPracticeLimit(lessonId)
+      if (limitRes.success && limitRes.count !== undefined) {
+        setPracticeLimit({ count: limitRes.count, allowed: limitRes.allowed ?? false, remaining: limitRes.remaining ?? 0 })
+      }
+
+      // Handle URL mode/attempt params
+      if (urlMode === 'result' && hasSubmission) {
+        setPostMode('result')
+        setPracticePhase('answering')
+      } else if (urlMode === 'practice' && hasSubmission) {
+        setPostMode('practice')
+        setPracticePhase('answering')
+      }
+
+      // Ưu tiên: grant chưa dùng → EXAM mode (làm lại, attempt mới)
+      // Còn hasSubmission → REVIEW mode (ôn tập, không tạo submission)
       if (hasUnusedGrant) {
-        // Exam mode làm lại: để trống answers, nghe 1 lần, nút nộp hiện như thường.
         setIsSubmitted(false)
         setMakeupAttempt(submissions.length + 1)
+        setPostMode(null) // đang làm bài lần đầu/làm lại
       } else if (hasSubmission) {
         // CHẾ ĐỘ ÔN: đã nộp bài → vào ôn tập, không chấm lại
         setIsSubmitted(true)
@@ -159,22 +187,19 @@ export default function PracticePage() {
             score: Number(latestSub.score ?? 0),
             percentage: Number(latestSub.percentage ?? 0),
           })
-          // Hiển thị đáp án đúng + tô màu theo lần làm gần nhất
           const rawAnswers: unknown = latestSub.user_answer
           const userAnswers: Record<string, string> =
             typeof rawAnswers === 'string'
               ? JSON.parse(rawAnswers)
               : rawAnswers && typeof rawAnswers === 'object'
-                ? (rawAnswers as Record<string, string>)
-                : {}
+              ? (rawAnswers as Record<string, string>)
+              : {}
           setAnswers(userAnswers)
           if (Number(latestSub.attempt_number ?? 1) > 1) {
             setReviewAttempt(Number(latestSub.attempt_number ?? 1))
           }
 
-          // Pre-fill tô màu đúng/sai + đáp án từ submission_answers (dữ liệu
-          // đã chấm thật, không tính lại). Chỉ fetch ở CHẾ ĐỘ ÔN (đã nộp) —
-          // đáp án KHÔNG xuống client cho SV chưa nộp.
+          // Pre-fill tô màu đúng/sai + đáp án từ submission_answers
           const { data: latestSubmissionId } = await supabase
             .from('submissions')
             .select('id')
@@ -211,10 +236,7 @@ export default function PracticePage() {
           }
         }
 
-        // Log practice_session 1 lần khi vào chế độ ôn.
-        // Guard double-insert: (1) ref (theo lessonId) chặn StrictMode
-        // double-mount cùng bài + tránh stale khi chuyển /practice/1 → /practice/2;
-        // (2) DB: chỉ insert nếu không có dòng cùng user+lesson trong 10 phút.
+        // Log practice_session 1 lần khi vào chế độ ôn
         if (practiceSessionLoggedRef.current !== lessonId) {
           practiceSessionLoggedRef.current = lessonId
           const { data: recentSessions } = await supabase
@@ -231,6 +253,10 @@ export default function PracticePage() {
             })
           }
         }
+      } else {
+        // Đang làm bài lần đầu (chưa nộp, chưa có grant)
+        setIsSubmitted(false)
+        setPostMode(null)
       }
 
       setLoading(false)
@@ -238,7 +264,7 @@ export default function PracticePage() {
 
     fetchData()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [lessonId])
+  }, [lessonId, urlMode, urlAttempt])
 
   // Gọi API lấy Presigned URL rồi phát
   const handlePlay = async () => {
@@ -246,7 +272,6 @@ export default function PracticePage() {
 
     if (isSubmitted) return
 
-    // Đang làm bài: chỉ cho nghe 1 lần
     if (hasPlayed) {
       alert('Bạn chỉ được nghe 1 lần trong lúc làm bài!')
       return
@@ -316,8 +341,6 @@ export default function PracticePage() {
   }
 
   const addHighlightFromSelection = () => {
-    // Bật trong cả chế độ làm bài lẫn ôn tập (spec: tô sáng hoạt động ở chế độ ôn)
-
     const container = passageRef.current
     const selection = window.getSelection()
     if (!container || !selection || selection.isCollapsed || selection.rangeCount === 0) {
@@ -497,31 +520,38 @@ export default function PracticePage() {
             const isCorrect = resultsMap[num]
             const userValue = answers[num] || ''
 
+            const isPracticeMode = postMode === 'practice'
+            const disabled = isSubmitted && !isPracticeMode // disabled in result view, editable in practice answering
+            const isChecked = isPracticeMode && practicePhase === 'checked'
+            const practiceDisabled = isChecked // locked in checked phase
+
             return (
               <span key={index} className="inline-block mx-1">
                 <input
                   type="text"
-                  value={userValue}
-                  onChange={(e) => handleAnswerChange(num, e.target.value)}
-                  disabled={isSubmitted}
-                  className={`
-                    inline-block px-2 py-0.5 border-b-2 min-w-[110px] text-center
-                    focus:outline-none
-                    ${
-                      isSubmitted
+                  value={isPracticeMode && practicePhase === 'answering' ? answers[num] || '' : userValue}
+                  onChange={isPracticeMode && practicePhase === 'answering' ? (e) => handleAnswerChange(num, e.target.value) : undefined}
+                  disabled={disabled || practiceDisabled}
+                  className={`inline-block px-2 py-0.5 border-b-2 min-w-[110px] text-center focus:outline-none ${
+                    isSubmitted && !isPracticeMode
+                      ? isCorrect
+                        ? 'border-green-500 text-green-600 bg-green-50'
+                        : 'border-red-500 text-red-600 bg-red-50'
+                      : isPracticeMode
+                      ? practicePhase === 'checked'
                         ? isCorrect
                           ? 'border-green-500 text-green-600 bg-green-50'
                           : 'border-red-500 text-red-600 bg-red-50'
                         : 'border-blue-400 text-blue-600 bg-blue-50'
-                    }
-                  `}
+                      : 'border-blue-400 text-blue-600 bg-blue-50'
+                  }`}
                   placeholder={`(${num})`}
                 />
-                {isSubmitted && !isCorrect && correctAnswersMap[num] && (
+                {(isSubmitted && !isPracticeMode && !isCorrect && correctAnswersMap[num]) || (isPracticeMode && isChecked && !isCorrect && practiceAnswers[num]) ? (
                   <span className="ml-1 text-xs text-green-700">
-                    ({correctAnswersMap[num]})
+                    ({(isSubmitted && !isPracticeMode) ? correctAnswersMap[num] : practiceAnswers[num]})
                   </span>
-                )}
+                ) : null}
               </span>
             )
           }
@@ -534,18 +564,19 @@ export default function PracticePage() {
     )
   }
 
+  // Count unanswered questions
+  const countUnanswered = () => {
+    if (!questions.length) return { answered: 0, total: 0 }
+    const answered = questions.filter(q => answers[q.question_number]?.trim()).length
+    return { answered, total: questions.length }
+  }
+
   const handleSubmit = async () => {
     if (!lesson || questions.length === 0) return
 
-    const unanswered = questions.filter(
-      (q) => !answers[q.question_number]?.trim()
-    )
-    if (unanswered.length > 0) {
-      if (
-        !confirm(
-          `Bạn còn ${unanswered.length} câu chưa trả lời. Bạn có chắc muốn nộp bài?`
-        )
-      ) {
+    const { answered, total } = countUnanswered()
+    if (answered < total) {
+      if (!confirm(`Bạn đã điền ${answered}/${total} câu. Bạn có chắc muốn nộp bài?`)) {
         return
       }
     }
@@ -578,8 +609,8 @@ export default function PracticePage() {
         percentage: res.result.percentage,
       })
       setIsSubmitted(true)
+      setPostMode('result') // chuyển sang xem kết quả
       if (makeupAttempt) {
-        // Nộp xong lượt makeup → sang chế độ ôn, giữ badge lần làm
         setReviewAttempt(makeupAttempt)
         setMakeupAttempt(null)
       }
@@ -597,6 +628,63 @@ export default function PracticePage() {
     setAudioSrc(null)
   }
 
+  // Practice mode handlers
+  const enterPracticeMode = async () => {
+    if (!practiceLimit?.allowed) return
+
+    // Fetch correct answers once for practice mode
+    if (!practiceAnswersFetched) {
+      const res = await getPracticeAnswers(lessonId)
+      if (res.success && res.answers) {
+        setPracticeAnswers(res.answers)
+        setPracticeAnswersFetched(true)
+      }
+    }
+
+    setPostMode('practice')
+    setPracticePhase('answering')
+    setAnswers({}) // reset answers for practice
+    setResultsMap({})
+    setCorrectAnswersMap({})
+    // Log practice session (guard 10 phút already handled in initial load)
+  }
+
+  const exitPracticeMode = () => {
+    setPostMode('result')
+    setPracticePhase('answering')
+    setAnswers({}) // clear practice answers
+    setResultsMap({})
+    setCorrectAnswersMap({})
+  }
+
+  const checkPracticeAnswers = () => {
+    if (!questions.length) return
+
+    const newResultsMap: Record<number, boolean> = {}
+    const newCorrectMap: Record<number, string> = {}
+
+    for (const q of questions) {
+      const userAns = (answers[q.question_number] || '').trim().toLowerCase()
+      const correctAns = (practiceAnswers[q.question_number] || '').trim().toLowerCase()
+      const isCorrect = userAns === correctAns
+
+      newResultsMap[q.question_number] = isCorrect
+      newCorrectMap[q.question_number] = practiceAnswers[q.question_number] || ''
+    }
+
+    setResultsMap(newResultsMap)
+    setCorrectAnswersMap(newCorrectMap)
+    setPracticePhase('checked')
+    // No alert — inline UI shows results (green/red, correct answers next to wrong)
+  }
+
+  const resetPractice = () => {
+    setAnswers({})
+    setResultsMap({})
+    setCorrectAnswersMap({})
+    setPracticePhase('answering')
+  }
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -604,6 +692,19 @@ export default function PracticePage() {
       </div>
     )
   }
+
+  if (!lesson) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <p>Không tìm thấy bài học</p>
+      </div>
+    )
+  }
+
+  const showResultView = postMode === 'result' || (isSubmitted && postMode !== 'practice')
+  const showPracticeAnswering = postMode === 'practice' && practicePhase === 'answering'
+  const showPracticeChecked = postMode === 'practice' && practicePhase === 'checked'
+  const isExamMode = !isSubmitted && postMode === null
 
   return (
     <div className="min-h-screen bg-gray-100">
@@ -616,23 +717,36 @@ export default function PracticePage() {
                 reviewAttempt
                   ? 'REVIEW SESSION · LẦN ' + reviewAttempt
                   : makeupAttempt
-                    ? 'MAKEUP SESSION · LẦN ' + makeupAttempt
-                    : 'PRACTICE SESSION'
+                  ? 'MAKEUP SESSION · LẦN ' + makeupAttempt
+                  : showPracticeAnswering || showPracticeChecked
+                  ? 'PRACTICE MODE'
+                  : isExamMode
+                  ? 'PRACTICE SESSION'
+                  : 'REVIEW RESULT'
               }
             />
             <div className="practice-header-lesson">
               <Link href="/dashboard" className="back-link">
                 ← Dashboard
               </Link>
-              <h1 className="practice-title">{lesson?.title}</h1>
+              <h1 className="practice-title">{lesson.title}</h1>
             </div>
           </div>
 
-          {isSubmitted && result && (
+          {showResultView && result && (
             <div className="result-summary">
               <p className="result-summary-label">Kết quả</p>
               <p className="result-summary-value">
                 {result.correct_count}/{result.total_questions} câu · {result.score}/10
+              </p>
+            </div>
+          )}
+
+          {showPracticeChecked && (
+            <div className="result-summary">
+              <p className="result-summary-label">Kết quả ôn tập</p>
+              <p className="result-summary-value">
+                {Object.values(resultsMap).filter(Boolean).length}/{questions.length} câu đúng
               </p>
             </div>
           )}
@@ -669,11 +783,11 @@ export default function PracticePage() {
                 })
             }}
             onEnded={() => setIsPlaying(false)}
-            controls={isSubmitted && Boolean(audioSrc)}
-            className={isSubmitted && audioSrc ? 'w-full' : 'hidden'}
+            controls={(showResultView || showPracticeAnswering || showPracticeChecked) && Boolean(audioSrc)}
+            className={(showResultView || showPracticeAnswering || showPracticeChecked) && audioSrc ? 'w-full' : 'hidden'}
           />
 
-          {!isSubmitted ? (
+          {!isSubmitted && postMode === null ? (
             <div className="space-y-4">
               <button
                 onClick={handlePlay}
@@ -722,10 +836,10 @@ export default function PracticePage() {
                 disabled={gettingAudio}
                 className="w-full bg-blue-600 text-white py-2 rounded-md hover:bg-blue-700 disabled:bg-gray-400"
               >
-                {gettingAudio ? 'Đang lấy file nghe...' : 'Nghe lại bài (xem đáp án)'}
+                {gettingAudio ? 'Đang lấy file nghe...' : 'Nghe lại bài (tự do tua)'}
               </button>
               <p className="text-sm text-green-600 mt-3">
-                ✓ Bạn có thể nghe lại và tua tự do để kiểm tra lỗi sai.
+                ✓ Bạn có thể nghe lại và tua tự do.
               </p>
             </div>
           )}
@@ -767,7 +881,8 @@ export default function PracticePage() {
             {renderPassage()}
           </div>
 
-          {!isSubmitted ? (
+          {/* Exam mode: submit button */}
+          {isExamMode ? (
             <button
               onClick={handleSubmit}
               disabled={submitting}
@@ -775,8 +890,11 @@ export default function PracticePage() {
             >
               {submitting ? 'Đang nộp bài...' : 'Nộp bài & Xem kết quả'}
             </button>
-          ) : (
-            <div className="space-y-3">
+          ) : null}
+
+          {/* Post-submit: Result view */}
+          {showResultView ? (
+            <div className="space-y-3 mt-4">
               <div className="p-4 bg-blue-50 rounded-md">
                 <p className="font-medium">
                   Bạn đúng{' '}
@@ -787,15 +905,79 @@ export default function PracticePage() {
                   Điểm quy đổi: <strong>{result?.score}/10</strong> (
                   {result?.percentage.toFixed(0)}%)
                 </p>
+                {reviewAttempt && (
+                  <p className="text-sm text-gray-500 mt-1">
+                    Lượt làm: <strong>{reviewAttempt}</strong>
+                  </p>
+                )}
               </div>
-              <Link
-                href="/dashboard"
-                className="block text-center text-blue-600 hover:underline"
-              >
-                ← Quay lại danh sách bài
-              </Link>
+
+              <div className="flex flex-wrap gap-3">
+                <button
+                  onClick={enterPracticeMode}
+                  disabled={!practiceLimit?.allowed}
+                  className={`flex-1 min-w-[180px] bg-amber-600 text-white py-3 rounded-md font-medium hover:bg-amber-700 disabled:bg-gray-400 disabled:cursor-not-allowed ${
+                    !practiceLimit?.allowed ? 'opacity-70' : ''
+                  }`}
+                  title={!practiceLimit?.allowed ? `Đã ôn tối đa 5 lần bài này` : undefined}
+                >
+                  Ôn tập
+                </button>
+                <Link
+                  href="/dashboard"
+                  className="flex-1 min-w-[180px] bg-gray-200 text-gray-700 py-3 rounded-md text-center font-medium hover:bg-gray-300"
+                >
+                  ← Quay lại danh sách bài
+                </Link>
+              </div>
             </div>
-          )}
+          ) : null}
+
+          {/* Practice mode: Answering phase */}
+          {showPracticeAnswering ? (
+            <div className="space-y-3 mt-4">
+              <p className="text-sm text-blue-600 bg-blue-50 p-3 rounded">
+                Chế độ ôn tập: điền tự do, nghe tự do. Không lưu kết quả.
+              </p>
+              <button
+                onClick={checkPracticeAnswers}
+                className="w-full bg-green-600 text-white py-3 rounded-md hover:bg-green-700 font-medium"
+              >
+                Kiểm tra kết quả
+              </button>
+              <button
+                onClick={exitPracticeMode}
+                className="w-full bg-gray-200 text-gray-700 py-2 rounded-md hover:bg-gray-300 text-sm"
+              >
+                Thoát ôn tập
+              </button>
+            </div>
+          ) : null}
+
+          {/* Practice mode: Checked phase */}
+          {showPracticeChecked ? (
+            <div className="space-y-3 mt-4">
+              <div className="p-4 bg-green-50 rounded-md">
+                <p className="font-medium text-green-700">
+                  Kết quả ôn tập: {Object.values(resultsMap).filter(Boolean).length}/{questions.length} câu đúng
+                </p>
+              </div>
+              <div className="flex flex-wrap gap-3">
+                <button
+                  onClick={resetPractice}
+                  className="flex-1 min-w-[180px] bg-blue-600 text-white py-3 rounded-md font-medium hover:bg-blue-700"
+                >
+                  Làm lại ôn tập
+                </button>
+                <button
+                  onClick={exitPracticeMode}
+                  className="flex-1 min-w-[180px] bg-gray-200 text-gray-700 py-3 rounded-md font-medium hover:bg-gray-300"
+                >
+                  Thoát ôn tập
+                </button>
+              </div>
+            </div>
+          ) : null}
         </div>
       </div>
     </div>
