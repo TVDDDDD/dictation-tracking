@@ -521,16 +521,19 @@ export default function PracticePage() {
             const userValue = answers[num] || ''
 
             const isPracticeMode = postMode === 'practice'
-            const disabled = isSubmitted && !isPracticeMode // disabled in result view, editable in practice answering
+            const isExamMode = postMode === null && !isSubmitted // first attempt or makeup
+            const disabled = isSubmitted && !isPracticeMode && !isExamMode // disabled in result view, editable in practice/exam
             const isChecked = isPracticeMode && practicePhase === 'checked'
             const practiceDisabled = isChecked // locked in checked phase
 
+            const isAnswering = (isPracticeMode && practicePhase === 'answering') || isExamMode
             return (
               <span key={index} className="inline-block mx-1">
                 <input
                   type="text"
-                  value={isPracticeMode && practicePhase === 'answering' ? answers[num] || '' : userValue}
-                  onChange={isPracticeMode && practicePhase === 'answering' ? (e) => handleAnswerChange(num, e.target.value) : undefined}
+                  value={isAnswering ? answers[num] || '' : userValue}
+                  onChange={isAnswering ? (e) => handleAnswerChange(num, e.target.value) : undefined}
+                  readOnly={!isAnswering}
                   disabled={disabled || practiceDisabled}
                   className={`inline-block px-2 py-0.5 border-b-2 min-w-[110px] text-center focus:outline-none ${
                     isSubmitted && !isPracticeMode

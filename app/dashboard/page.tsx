@@ -45,6 +45,7 @@ export default async function DashboardPage() {
   const profile = profileResult.data;
   const lessons = lessonsResult.data || [];
   const classCode = (profile?.class_code || "").trim();
+  const isAdmin = profile?.role === "admin";
 
   // Set lesson_id đã có submission
   const submitted = new Map<number, { maxAttempt: number }>();
@@ -56,10 +57,10 @@ export default async function DashboardPage() {
     });
   }
 
-  // Set lesson_id mở cho lớp mình
+  // Set lesson_id mở cho lớp mình (admin bypass: thấy tất cả bài active)
   const openForClass = new Set(
     (accessResult.data || [])
-      .filter((a) => a.class_code === classCode)
+      .filter((a) => isAdmin || a.class_code === classCode)
       .map((a) => a.lesson_id),
   );
 
@@ -74,6 +75,11 @@ export default async function DashboardPage() {
     if (makeupReady.has(lessonId)) return "makeup";
     if (submitted.has(lessonId)) return "done";
     if (openForClass.has(lessonId)) return "open";
+    // Admin thấy bài active là open, bài inactive vẫn locked
+    if (isAdmin) {
+      const lesson = lessons.find(l => l.id === lessonId);
+      if (lesson?.is_active) return "open";
+    }
     return "locked";
   };
 
@@ -97,6 +103,9 @@ export default async function DashboardPage() {
             {/* Nút Admin - chỉ hiện khi là admin */}
             {profile?.role === "admin" && (
               <>
+                <Link href="/admin/lessons" className="button button-secondary">
+                  Quản lý bài nghe
+                </Link>
                 <Link href="/admin" className="button button-secondary">
                   Quản lý sinh viên
                 </Link>

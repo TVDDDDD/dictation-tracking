@@ -14,6 +14,18 @@ create table if not exists public.lesson_access (
   constraint lesson_access_lesson_class_key unique (lesson_id, class_code)
 );
 
+-- Add created_at/updated_at to lessons if missing
+do $$
+begin
+  if not exists (select 1 from information_schema.columns where table_name = 'lessons' and column_name = 'created_at') then
+    alter table public.lessons add column created_at timestamptz not null default now();
+  end if;
+  if not exists (select 1 from information_schema.columns where table_name = 'lessons' and column_name = 'updated_at') then
+    alter table public.lessons add column updated_at timestamptz not null default now();
+  end if;
+end
+$$;
+
 alter table public.lesson_access enable row level security;
 
 -- FK để PostgREST embed "profiles ( full_name )" (audit tên admin)

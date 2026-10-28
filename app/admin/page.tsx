@@ -22,7 +22,7 @@ export default async function AdminPage({
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("role, full_name")
+    .select("role, full_name, class_code")
     .eq("id", user.id)
     .single();
 
@@ -62,12 +62,13 @@ export default async function AdminPage({
     }),
   ]);
 
+  // Include admin's class_code so admin can grant access to their own test class
+  const adminClassCode = (profile?.class_code || "").trim();
+  const studentClassCodes = (profilesResult.data || [])
+    .map((p) => p.class_code)
+    .filter((classCode): classCode is string => Boolean(classCode));
   const classList = Array.from(
-    new Set(
-      (profilesResult.data || [])
-        .map((p) => p.class_code)
-        .filter((classCode): classCode is string => Boolean(classCode)),
-    ),
+    new Set([...studentClassCodes, adminClassCode].filter(Boolean)),
   ).sort();
   const lessons = lessonsResult.data;
   let submissions = submissionsResult;

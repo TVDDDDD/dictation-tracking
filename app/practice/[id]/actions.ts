@@ -3,7 +3,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 
-// ===== Lấy đáp án đúng cho chế độ ôn tập (chỉ cho phép khi đã có submission) =====
+// ===== Lấy đáp án đúng cho chế độ ôn tập (chỉ cho phép khi đã có submission HOẶC là admin) =====
 export async function getPracticeAnswers(lessonId: number) {
   const supabase = await createClient()
 
@@ -12,16 +12,26 @@ export async function getPracticeAnswers(lessonId: number) {
     return { success: false, message: 'Bạn chưa đăng nhập' }
   }
 
-  // Guard: chỉ cho phép khi đã có submission (đã nộp bài ít nhất 1 lần)
-  const { data: subs, error: subError } = await supabase
-    .from('submissions')
-    .select('id')
-    .eq('user_id', user.id)
-    .eq('lesson_id', lessonId)
-    .limit(1)
+  // Check if admin
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('role')
+    .eq('id', user.id)
+    .maybeSingle()
+  const isAdmin = profile?.role === 'admin'
 
-  if (subError || !subs || subs.length === 0) {
-    return { success: false, message: 'Chưa có bài làm nào, không thể xem đáp án ôn tập' }
+  // Guard: chỉ cho phép khi đã có submission (đã nộp bài ít nhất 1 lần) HOẶC là admin
+  if (!isAdmin) {
+    const { data: subs, error: subError } = await supabase
+      .from('submissions')
+      .select('id')
+      .eq('user_id', user.id)
+      .eq('lesson_id', lessonId)
+      .limit(1)
+
+    if (subError || !subs || subs.length === 0) {
+      return { success: false, message: 'Chưa có bài làm nào, không thể xem đáp án ôn tập' }
+    }
   }
 
   // Lấy đáp án đúng từ questions
@@ -43,13 +53,24 @@ export async function getPracticeAnswers(lessonId: number) {
   return { success: true, answers: answersMap }
 }
 
-// ===== Kiểm tra giới hạn ôn tập (tối đa 5 lần) =====
+// ===== Kiểm tra giới hạn ôn tập (tối đa 5 lần, admin unlimited) =====
 export async function checkPracticeLimit(lessonId: number) {
   const supabase = await createClient()
 
   const { data: { user }, error: authError } = await supabase.auth.getUser()
   if (authError || !user) {
     return { success: false, message: 'Bạn chưa đăng nhập', count: 0 }
+  }
+
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('role')
+    .eq('id', user.id)
+    .maybeSingle()
+  const isAdmin = profile?.role === 'admin'
+
+  if (isAdmin) {
+    return { success: true, count: 0, allowed: true, remaining: 999 }
   }
 
   const { count, error } = await supabase
@@ -84,68 +105,91 @@ export async function submitPractice(
     return { success: false, message: 'Bạn chưa đăng nhập' }
   }
 
+  // Check if admin
+  const { data: adminProfile } = await supabase
+    .from('profiles')
+    .select('role')
+    .eq('id', user.id)
+    .maybeSingle()
+  const isAdmin = adminProfile?.role === 'admin'
+
   // 2. Kiểm tra quyền làm bài: lesson_access (attempt 1) / makeup_grant (attempt >= 2)
-  const [profileResult, subsResult, grantResult] = await Promise.all([
-    supabase
-      .from('profiles')
-      .select('class_code')
-      .eq('id', user.id)
-      .maybeSingle(),
-    supabase
-      .from('submissions')
-      .select('id')
-      .eq('user_id', user.id)
-      .eq('lesson_id', lessonId),
-    supabase
-      .from('makeup_grants')
-      .select('id')
-      .eq('user_id', user.id)
-      .eq('lesson_id', lessonId)
-      .maybeSingle(),
-  ])
+  // Admin bypass all checks
+  if (!isAdmin) {
+    const [profileResult, subsResult, grantResult] = await Promise.all([
+      supabase
+        .from('profiles')
+        .select('class_code')
+        .eq('id', user.id)
+        .maybeSingle(),
+      supabase
+        .from('submissions')
+        .select('id')
+        .eq('user_id', user.id)
+        .eq('lesson_id', lessonId),
+      supabase
+        .from('makeup_grants')
+        .select('id')
+        .eq('user_id', user.id)
+        .eq('lesson_id', lessonId)
+        .maybeSingle(),
+    ])
 
-  const existingCount = (subsResult.data || []).length
-  const attemptNumber = existingCount + 1
+    const existingCount = (subsResult.data || []).length
+    const attemptNumber = existingCount + 1
 
-  if (attemptNumber === 1) {
-    // Lần đầu: bài phải mở cho lớp của sinh viên, HOẶC có makeup grant
-    // chưa dùng (admin cấp trước khi SV làm) — defense in depth,
-    // chống gọi thẳng server action khi dashboard đã chặn
-    const classCode = (profileResult.data?.class_code || '').trim()
-    const grantUnused = Boolean(grantResult.data) && existingCount < 2
-    if (!grantUnused) {
-      if (!classCode) {
-        return {
-          success: false,
-          message: 'Bạn chưa có mã lớp, không thể làm bài này',
+    if (attemptNumber === 1) {
+      // Lần đầu: bài phải mở cho lớp của sinh viên, HOẶC có makeup grant
+      // chưa dùng (admin cấp trước khi SV làm) — defense in depth,
+      // chống gọi thẳng server action khi dashboard đã chặn
+      const classCode = (profileResult.data?.class_code || '').trim()
+      const grantUnused = Boolean(grantResult.data) && existingCount < 2
+      if (!grantUnused) {
+        if (!classCode) {
+          return {
+            success: false,
+            message: 'Bạn chưa có mã lớp, không thể làm bài này',
+          }
+        }
+        const { data: access } = await supabase
+          .from('lesson_access')
+          .select('id')
+          .eq('lesson_id', lessonId)
+          .eq('class_code', classCode)
+          .maybeSingle()
+        if (!access) {
+          return { success: false, message: 'Bài chưa mở cho lớp của bạn' }
         }
       }
-      const { data: access } = await supabase
-        .from('lesson_access')
-        .select('id')
-        .eq('lesson_id', lessonId)
-        .eq('class_code', classCode)
-        .maybeSingle()
-      if (!access) {
-        return { success: false, message: 'Bài chưa mở cho lớp của bạn' }
+    } else {
+      // Làm lại (makeup): cần grant chưa dùng. "Chưa dùng" = số submissions
+      // hiện có cho cặp (user, lesson) < 2 (chưa có attempt 2).
+      const grantUnused = Boolean(grantResult.data) && existingCount < 2
+      if (!grantResult.data) {
+        return {
+          success: false,
+          message: 'Bạn chưa được cấp quyền làm lại bài này',
+        }
       }
-    }
-  } else {
-    // Làm lại (makeup): cần grant chưa dùng. "Chưa dùng" = số submissions
-    // hiện có cho cặp (user, lesson) < 2 (chưa có attempt 2).
-    const grantUnused = Boolean(grantResult.data) && existingCount < 2
-    if (!grantResult.data) {
-      return {
-        success: false,
-        message: 'Bạn chưa được cấp quyền làm lại bài này',
-      }
-    }
-    if (!grantUnused) {
+      if (!grantUnused) {
       return {
         success: false,
         message: 'Bạn đã sử dụng quyền làm lại của bài này rồi',
       }
     }
+  }
+}
+
+  let attemptNumber = 1
+
+  // Admin: tự động set attemptNumber = 1 (hoặc count existing + 1)
+  if (isAdmin) {
+    const { count } = await supabase
+      .from('submissions')
+      .select('id', { count: 'exact', head: true })
+      .eq('user_id', user.id)
+      .eq('lesson_id', lessonId)
+    attemptNumber = (count || 0) + 1
   }
 
   // 3. Lấy đáp án đúng từ database (chỉ server mới lấy được)

@@ -11,7 +11,7 @@ create table if not exists public.profiles (
 );
 
 create table if not exists public.lessons (
-  id integer primary key,
+  id integer primary key generated always as identity,
   title text,
   audio_url text,
   passage text,
@@ -21,14 +21,14 @@ create table if not exists public.lessons (
 );
 
 create table if not exists public.questions (
-  id uuid primary key,
+  id uuid primary key default gen_random_uuid(),
   lesson_id integer,
   question_number integer,
   correct_answer text
 );
 
 create table if not exists public.submissions (
-  id uuid primary key,
+  id uuid primary key default gen_random_uuid(),
   user_id uuid,
   lesson_id integer,
   correct_count integer,

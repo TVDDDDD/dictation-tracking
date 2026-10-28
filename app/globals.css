@@ -2066,3 +2066,102 @@ textarea {
 .history-right {
   gap: 0.5rem !important;
 }
+
+/* ===== Wizard Progress Styles ===== */
+.wizard-progress {
+  overflow-x: auto;
+}
+
+.wizard-progress .flex {
+  min-width: max-content;
+}
+
+.wizard-step {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: #e5e7eb;
+  color: #9ca3af;
+  font-weight: 600;
+  font-size: 14px;
+  transition: all 0.2s;
+}
+
+.wizard-step.active {
+  background: #2563eb;
+  color: white;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.2);
+}
+
+.wizard-step.completed {
+  background: #16a34a;
+  color: white;
+}
+
+.wizard-step-label {
+  margin-left: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  color: #6b7280;
+  white-space: nowrap;
+}
+
+.wizard-step-label.active {
+  color: #2563eb;
+  font-weight: 600;
+}
+
+.wizard-connector {
+  width: 60px;
+  height: 2px;
+  background: #e5e7eb;
+  margin-left: 8px;
+  transition: background 0.2s;
+}
+
+.wizard-connector.completed {
+  background: #16a34a;
+}
+
+/* ===== Drop Zone Styles ===== */
+.drop-zone {
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.drop-zone:hover:not(:has(.animate-spin)) {
+  border-color: #2563eb !important;
+  background: #eff6ff !important;
+}
+
+.drop-zone:has(input:focus-visible) {
+  outline: 2px solid #2563eb;
+  outline-offset: 2px;
+}
+
+/* ===== Passage Editor Grid ===== */
+.passage-editor-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1.5rem;
+}
+
+@media (min-width: 1024px) {
+  .passage-editor-grid {
+    grid-template-columns: 2fr 1fr;
+  }
+}
+
+/* ===== Modal Overlay ===== */
+.fixed.inset-0.bg-black\/50 {
+  backdrop-filter: blur(2px);
+}
+
+/* ===== Audio Player ===== */
+audio {
+  width: 100%;
+  max-width: 100%;
+}

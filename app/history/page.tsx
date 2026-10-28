@@ -111,7 +111,7 @@ export default async function HistoryPage() {
               return (
                 <Link
                   key={item.id}
-                  href={`/practice/${lesson?.order_number ?? item.lesson_id}?mode=result&attempt=${item.attempt_number}`}
+                  href={`/practice/${item.lesson_id}?mode=result&attempt=${item.attempt_number}`}
                   className="history-card"
                 >
                   <article className="history-card-inner">
