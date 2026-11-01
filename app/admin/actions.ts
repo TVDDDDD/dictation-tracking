@@ -205,33 +205,15 @@ async function checkOrderNumberUnique(supabase: SupabaseClient, orderNumber: num
   return !data
 }
 
-async function getNextOrderNumber(supabase: SupabaseClient, classCodes: string[]): Promise<number> {
-  if (!classCodes || classCodes.length === 0) {
-    // For lessons visible to all classes, get global max order_number
-    const { data } = await supabase
-      .from('lessons')
-      .select('order_number')
-      .eq('class_codes', '{}')
-      .order('order_number', { ascending: false })
-      .limit(1)
-      .maybeSingle()
-    return (data?.order_number ?? 0) + 1
-  }
-  // For lessons assigned to specific classes, get max order_number among those classes
-  let maxOrder = 0
-  for (const classCode of classCodes) {
-    const { data } = await supabase
-      .from('lessons')
-      .select('order_number')
-      .contains('class_codes', [classCode])
-      .order('order_number', { ascending: false })
-      .limit(1)
-      .maybeSingle()
-    if (data && data.order_number > maxOrder) {
-      maxOrder = data.order_number
-    }
-  }
-  return maxOrder + 1
+async function getNextOrderNumber(supabase: SupabaseClient, _classCodes: string[]): Promise<number> {
+  // Global sequence: max order_number across all lessons + 1
+  const { data } = await supabase
+    .from('lessons')
+    .select('order_number')
+    .order('order_number', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+  return (data?.order_number ?? 0) + 1
 }
 
 /** CREATE: transaction lessons + questions */
