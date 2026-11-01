@@ -17,7 +17,6 @@ type ClassOption = { code: string; name: string; is_advanced?: boolean; sort_ord
 
 type LessonFormData = {
   title: string
-  order_number: number
   is_active: boolean
   audio_url: string
   passage: string
@@ -27,7 +26,6 @@ type LessonFormData = {
 
 const initialFormData: LessonFormData = {
   title: '',
-  order_number: 1,
   is_active: false,
   audio_url: '',
   passage: '',
@@ -446,10 +444,6 @@ export default function CreateLessonPage() {
                     <div className="flex justify-between">
                       <dt className="text-gray-500">Tên bài:</dt>
                       <dd className="font-medium">{formData.title || '—'}</dd>
-                    </div>
-                    <div className="flex justify-between">
-                      <dt className="text-gray-500">Thứ tự:</dt>
-                      <dd className="font-medium">{formData.order_number}</dd>
                     </div>
                     <div className="flex justify-between">
                       <dt className="text-gray-500">Trạng thái:</dt>
