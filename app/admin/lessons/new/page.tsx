@@ -436,11 +436,11 @@ export default function CreateLessonPage() {
 
           {/* Step 4: Xem trước */}
           {step === 4 && (
-            <div className="space-y-6 max-w-3xl">
+            <div className="space-y-6 max-w-7xl">
               <h2 className="text-xl font-semibold">Bước 4: Xem trước & Lưu</h2>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="p-4 bg-gray-50 rounded-lg">
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                <div className="lg:col-span-4 p-4 bg-gray-50 rounded-lg">
                   <h4 className="font-medium text-gray-700 mb-2">Thông tin bài</h4>
                   <dl className="space-y-2 text-sm">
                     <div className="flex justify-between">
@@ -466,7 +466,7 @@ export default function CreateLessonPage() {
                   </dl>
                 </div>
 
-                <div className="p-4 bg-gray-50 rounded-lg">
+                <div className="lg:col-span-4 p-4 bg-gray-50 rounded-lg">
                   <h4 className="font-medium text-gray-700 mb-2">Audio Preview</h4>
                   {formData.audio_url ? (
                     <>
@@ -481,9 +481,9 @@ export default function CreateLessonPage() {
                 </div>
               </div>
 
-              <div className="p-4 bg-gray-50 rounded-lg">
+              <div className="p-4 bg-gray-50 rounded-lg lg:col-span-12">
                 <h4 className="font-medium text-gray-700 mb-2">Đoạn văn Preview</h4>
-                <div className="prose max-w-none text-sm leading-relaxed">
+                <div className="prose max-w-none text-sm leading-relaxed whitespace-pre-wrap">
                   {formData.passage
                     .split(/\{\{(\d+)\}\}/)
                     .map((part, idx) => {
