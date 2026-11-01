@@ -561,7 +561,7 @@ export default function PracticePage() {
 
           const partOffset = textOffset
           textOffset += part.length
-          return <span key={index}>{renderHighlightedText(part, partOffset)}</span>
+          return <span key={index} className="whitespace-pre-wrap">{renderHighlightedText(part, partOffset)}</span>
         })}
       </div>
     )
