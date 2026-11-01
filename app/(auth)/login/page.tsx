@@ -99,6 +99,11 @@ export default function LoginPage() {
               Tạo tài khoản học viên
             </AuthTransitionLink>
           </p>
+          <p className="auth-switch" style={{ marginTop: '0.5rem' }}>
+            <AuthTransitionLink href="/forgot-password">
+              Quên mật khẩu?
+            </AuthTransitionLink>
+          </p>
         </div>
       </section>
     </main>

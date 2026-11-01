@@ -1,9 +1,10 @@
 'use client'
 
-import React, { useState, useCallback } from 'react'
+import React, { useState, useCallback, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createLesson, getAudioPresignedPut } from '@/app/admin/actions'
+import { createClient } from '@/lib/supabase/client'
 import PassageEditor from '@/app/admin/components/PassageEditor'
 import BrandLogo from '@/app/components/BrandLogo'
 
@@ -12,6 +13,8 @@ type QuestionInput = {
   correct_answer: string
 }
 
+type ClassOption = { code: string; name: string; is_advanced?: boolean; sort_order?: number }
+
 type LessonFormData = {
   title: string
   order_number: number
@@ -19,6 +22,7 @@ type LessonFormData = {
   audio_url: string
   passage: string
   questions: QuestionInput[]
+  class_codes: string[]
 }
 
 const initialFormData: LessonFormData = {
@@ -28,6 +32,7 @@ const initialFormData: LessonFormData = {
   audio_url: '',
   passage: '',
   questions: [],
+  class_codes: [],
 }
 
 const stepLabels = [
@@ -47,6 +52,20 @@ export default function CreateLessonPage() {
   const [audioUploading, setAudioUploading] = useState(false)
   const [audioError, setAudioError] = useState('')
   const [audioKey, setAudioKey] = useState('')
+  const [classes, setClasses] = useState<ClassOption[]>([])
+  const supabase = createClient()
+
+  // Load classes for multi-select
+  useEffect(() => {
+    const loadClasses = async () => {
+      const { data } = await supabase
+        .from('classes')
+        .select('code, name, sort_order')
+        .order('sort_order', { ascending: true })
+      setClasses((data as ClassOption[]) || [])
+    }
+    loadClasses()
+  }, [supabase])
 
   const validateStep = useCallback((currentStep: number): boolean => {
     const newErrors: Partial<Record<keyof LessonFormData, string>> = {}
@@ -54,9 +73,7 @@ export default function CreateLessonPage() {
     if (currentStep >= 1) {
       if (!formData.title.trim()) newErrors.title = 'Tên bài không được rỗng'
       else if (formData.title.length > 200) newErrors.title = 'Tên bài tối đa 200 ký tự'
-      if (!Number.isInteger(formData.order_number) || formData.order_number <= 0) {
-        newErrors.order_number = 'Thứ tự bài phải là số nguyên dương'
-      }
+      // order_number sẽ được auto-generate, không validate ở client
     }
 
     if (currentStep >= 2) {
@@ -64,7 +81,7 @@ export default function CreateLessonPage() {
     }
 
     if (currentStep >= 3) {
-      if (!formData.passage.trim()) newErrors.passage = 'Đoạn văn không được rỗง'
+      if (!formData.passage.trim()) newErrors.passage = 'Đoạn văn không được rỗng'
       const blankMatches = formData.passage.match(/\{\{(\d+)\}\}/g)
       const blankCount = blankMatches ? blankMatches.length : 0
       if (blankCount === 0) newErrors.passage = 'Đoạn văn phải có ít nhất 1 ô trống {{n}}'
@@ -85,10 +102,6 @@ export default function CreateLessonPage() {
 
   const handleTitleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData(prev => ({ ...prev, title: e.target.value }))
-  }
-
-  const handleOrderChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setFormData(prev => ({ ...prev, order_number: parseInt(e.target.value) || 1 }))
   }
 
   const handleActiveChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -176,7 +189,7 @@ export default function CreateLessonPage() {
   }
 
   const blankCount = formData.questions.length
-  
+
   return (
     <div className="app-page">
       <header className="topbar">
@@ -242,36 +255,51 @@ export default function CreateLessonPage() {
                 {errors.title && <p className="mt-1 text-sm text-red-500">{errors.title}</p>}
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Thứ tự hiển thị <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="number"
-                    value={formData.order_number}
-                    onChange={handleOrderChange}
-                    min={1}
-                    className={`field-control w-full max-w-xs ${errors.order_number ? 'border-red-400' : ''}`}
-                  />
-                  {errors.order_number && <p className="mt-1 text-sm text-red-500">{errors.order_number}</p>}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Lớp áp dụng <span className="text-red-500">*</span>
+                </label>
+                <p className="text-sm text-gray-500 mb-3">
+                  Chọn một hoặc nhiều lớp. Để trống = bài hiển thị cho tất cả lớp.
+                </p>
+                <div className="space-y-2 max-h-60 overflow-y-auto border rounded-lg p-3">
+                  {classes.map((c) => (
+                    <label key={c.code} className="flex items-center gap-2 cursor-pointer p-2 hover:bg-gray-50 rounded">
+                      <input
+                        type="checkbox"
+                        checked={formData.class_codes.includes(c.code)}
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            setFormData(prev => ({ ...prev, class_codes: [...prev.class_codes, c.code] }))
+                          } else {
+                            setFormData(prev => ({ ...prev, class_codes: prev.class_codes.filter(code => code !== c.code) }))
+                          }
+                        }}
+                        className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                      />
+                      <span className="text-sm text-gray-700">
+                        {c.name}
+                      </span>
+                    </label>
+                  ))}
                 </div>
+                {errors.class_codes && <p className="mt-1 text-sm text-red-500">{errors.class_codes}</p>}
+              </div>
 
-                <div className="flex items-center">
-                  <label className="flex items-center gap-2 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={formData.is_active}
-                      onChange={handleActiveChange}
-                      className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-                    />
-                    <span className="text-sm text-gray-700">Mở bài ngay sau khi lưu (is_active)</span>
-                  </label>
-                </div>
+              <div className="flex items-center">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={formData.is_active}
+                    onChange={handleActiveChange}
+                    className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                  />
+                  <span className="text-sm text-gray-700">Mở bài ngay sau khi lưu (is_active)</span>
+                </label>
               </div>
 
               <p className="text-sm text-gray-500">
-                Thứ tự bài quyết định vị trí hiển thị trên Dashboard SV. Số nhỏ hơn = hiển thị trước.
+                Thứ tự bài sẽ được gán tự động theo lớp (số lớn nhất hiện tại + 1). Số nhỏ hơn = hiển thị trước.
               </p>
 
               <div className="flex justify-end pt-4 border-t">

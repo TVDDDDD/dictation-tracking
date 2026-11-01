@@ -11,6 +11,7 @@ type LessonRowProps = {
     total_questions: number
     is_active: boolean
     created_at: string
+    class_codes?: string[]
   }
   index: number
 }
@@ -23,6 +24,10 @@ export default function LessonRow({ lesson, index }: LessonRowProps) {
       window.location.reload()
     }
   }
+
+  const classLabels = (lesson.class_codes ?? []).length === 0
+    ? 'Tất cả lớp'
+    : lesson.class_codes!.join(', ')
 
   return (
     <tr className="hover:bg-gray-50">
@@ -48,6 +53,9 @@ export default function LessonRow({ lesson, index }: LessonRowProps) {
         }`}>
           {lesson.is_active ? '✓ Đang mở' : 'Ẩn'}
         </span>
+      </td>
+      <td className="px-4 py-3 text-center text-sm text-gray-600">
+        {classLabels}
       </td>
       <td className="px-4 py-3 text-right">
         <div className="flex items-center justify-end gap-2">

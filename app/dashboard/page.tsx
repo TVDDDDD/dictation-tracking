@@ -5,8 +5,16 @@ import BrandLogo from "@/app/components/BrandLogo";
 
 type LessonStatus = "makeup" | "done" | "open" | "locked";
 
-export default async function DashboardPage() {
+const PAGE_SIZE = 10;
+
+export default async function DashboardPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ page?: string }>;
+}) {
   const supabase = await createClient();
+  const params = await searchParams;
+  const page = Math.max(1, Number(params.page || 1));
 
   // Kiểm tra đăng nhập
   const {
@@ -28,7 +36,8 @@ export default async function DashboardPage() {
         .from("lessons")
         .select("*")
         .eq("is_active", true)
-        .order("order_number", { ascending: true }),
+        .order("order_number", { ascending: true })
+        .range((page - 1) * PAGE_SIZE, page * PAGE_SIZE - 1),
       supabase
         .from("submissions")
         .select("lesson_id, attempt_number")
@@ -46,6 +55,14 @@ export default async function DashboardPage() {
   const lessons = lessonsResult.data || [];
   const classCode = (profile?.class_code || "").trim();
   const isAdmin = profile?.role === "admin";
+
+  // Filter lessons by class for students (admin sees all)
+  const visibleLessons = isAdmin
+    ? lessons
+    : lessons.filter((l) => {
+        if (!l.class_codes || l.class_codes.length === 0) return true; // visible to all
+        return l.class_codes.includes(classCode);
+      });
 
   // Set lesson_id đã có submission
   const submitted = new Map<number, { maxAttempt: number }>();
@@ -77,7 +94,7 @@ export default async function DashboardPage() {
     if (openForClass.has(lessonId)) return "open";
     // Admin thấy bài active là open, bài inactive vẫn locked
     if (isAdmin) {
-      const lesson = lessons.find(l => l.id === lessonId);
+      const lesson = visibleLessons.find(l => l.id === lessonId);
       if (lesson?.is_active) return "open";
     }
     return "locked";
@@ -92,6 +109,13 @@ export default async function DashboardPage() {
     open: { pill: 'Đã mở', cta: 'Làm bài', href: '/practice/[id]' },
     locked: { pill: 'Chưa mở', cta: 'Chưa mở', href: null },
   };
+
+  // Total count for pagination
+  const { count: totalCount } = await supabase
+    .from("lessons")
+    .select("id", { count: "exact", head: true })
+    .eq("is_active", true);
+  const totalPages = Math.ceil((totalCount || 0) / PAGE_SIZE);
 
   return (
     <div className="app-page">
@@ -146,8 +170,8 @@ export default async function DashboardPage() {
             </div>
 
             <span className="hero-meta">
-              {lessons.length
-                ? `${lessons.length} bài đang mở`
+              {visibleLessons.length
+                ? `${visibleLessons.length} bài đang mở`
                 : "Đang cập nhật nội dung"}
             </span>
           </div>
@@ -158,73 +182,100 @@ export default async function DashboardPage() {
             <h3 className="section-title">Bài luyện tập</h3>
             <p className="section-note">
               Bài được mở cho lớp của bạn. Sinh viên chưa có mã lớp sẽ thấy mọi
-              bài ở trạng thái &quot;Chưa mở&quot;.
+              bài ở trạng thái &ldquo;Chưa mở&rdquo;.
             </p>
           </div>
         </div>
 
-        {lessons.length > 0 ? (
-          <div className="lesson-grid">
-            {lessons.map((lesson) => {
-              const status = statusOf(lesson.id);
-              const cfg = statusConfig[status];
-              const href = cfg.href
-                ? cfg.href.replace("[id]", String(lesson.id))
-                : null;
+        {visibleLessons.length > 0 ? (
+          <>
+            <div className="lesson-grid">
+              {visibleLessons.map((lesson) => {
+                const status = statusOf(lesson.id);
+                const cfg = statusConfig[status];
+                const href = cfg.href
+                  ? cfg.href.replace("[id]", String(lesson.id))
+                  : null;
 
-              return (
-                <article key={lesson.id} className="lesson-card">
-                  <div className="lesson-card-top">
-                    <span className="lesson-number">
-                      Bài {lesson.order_number}
-                    </span>
-                    <span
-                      className="status-pill"
-                      style={{
-                        background:
-                          status === "open" || status === "makeup"
-                            ? "var(--mint)"
-                            : status === "done"
-                              ? "rgba(96,165,250,.15)"
-                              : "var(--surface-muted)",
-                        color:
-                          status === "open" || status === "makeup"
-                            ? "var(--forest)"
-                            : status === "done"
-                              ? "#1d4ed8"
-                              : "var(--ink-soft)",
-                      }}
-                    >
-                      {cfg.pill}
-                    </span>
-                  </div>
+                return (
+                  <article key={lesson.id} className="lesson-card">
+                    <div className="lesson-card-top">
+                      <span className="lesson-number">
+                        Bài {lesson.order_number}
+                      </span>
+                      <span
+                        className="status-pill"
+                        style={{
+                          background:
+                            status === "open" || status === "makeup"
+                              ? "var(--mint)"
+                              : status === "done"
+                                ? "rgba(96,165,250,.15)"
+                                : "var(--surface-muted)",
+                          color:
+                            status === "open" || status === "makeup"
+                              ? "var(--forest)"
+                              : status === "done"
+                                ? "#1d4ed8"
+                                : "var(--ink-soft)",
+                        }}
+                      >
+                        {cfg.pill}
+                      </span>
+                    </div>
 
-                  <h3>{lesson.title}</h3>
+                    <h3>{lesson.title}</h3>
 
-                  <p>
-                    Lắng nghe đoạn văn và điền chính xác những gì bạn nghe
-                    được.
-                  </p>
+                    <p>
+                      Lắng nghe đoạn văn và điền chính xác những gì bạn nghe
+                      được.
+                    </p>
 
-                  {href ? (
-                    <Link
-                      href={href}
-                      className="button button-primary"
-                    >
-                      {cfg.cta}
-                    </Link>
-                  ) : (
-                    <button
-                      className="button button-primary"
-                      disabled
-                    >
-                      {cfg.cta}
-                    </button>
-                  )}
-                </article>
-              );
-            })}
-          </div>
+                    {href ? (
+                      <Link
+                        href={href}
+                        className="button button-primary"
+                      >
+                        {cfg.cta}
+                      </Link>
+                    ) : (
+                      <button
+                        className="button button-primary"
+                        disabled
+                      >
+                        {cfg.cta}
+                      </button>
+                    )}
+                  </article>
+                );
+              })}
+            </div>
+
+            {/* Pagination */}
+            {totalPages > 1 && (
+              <div className="flex items-center justify-center gap-2 mt-6">
+                {page > 1 && (
+                  <Link
+                    href={`/dashboard?page=${page - 1}`}
+                    className="button button-secondary button-small"
+                  >
+                    ← Trước
+                  </Link>
+                )}
+                <span className="px-4 text-sm text-gray-600">
+                  Trang {page} / {totalPages}
+                </span>
+                {page < totalPages && (
+                  <Link
+                    href={`/dashboard?page=${page + 1}`}
+                    className="button button-secondary button-small"
+                  >
+                    Sau →
+                  </Link>
+                )}
+              </div>
+            )}
+          </>
         ) : (
           <div className="empty-state">
             <h3>Chưa có bài học nào</h3>

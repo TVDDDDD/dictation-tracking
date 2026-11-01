@@ -67,9 +67,20 @@ export default async function AdminPage({
   const studentClassCodes = (profilesResult.data || [])
     .map((p) => p.class_code)
     .filter((classCode): classCode is string => Boolean(classCode));
+
+  // Load class info from classes table for display names
+  const { data: classInfo } = await supabase
+    .from("classes")
+    .select("code, name")
+    .in("code", [...studentClassCodes, adminClassCode].filter(Boolean));
+
+  const classMap = new Map((classInfo || []).map(c => [c.code, c.name]));
+
   const classList = Array.from(
     new Set([...studentClassCodes, adminClassCode].filter(Boolean)),
-  ).sort();
+  )
+    .sort()
+    .map(code => ({ code, name: classMap.get(code) || code }));
   const lessons = lessonsResult.data;
   let submissions = submissionsResult;
 

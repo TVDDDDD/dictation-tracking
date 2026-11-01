@@ -2,8 +2,15 @@
 
 import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
-import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3'
+import { S3Client, DeleteObjectCommand } from '@aws-sdk/client-s3'
 import type { SupabaseClient } from '@supabase/supabase-js'
+
+export type ClassOption = {
+  code: string
+  name: string
+  is_advanced: boolean
+  sort_order: number
+}
 
 async function assertAdmin() {
   const supabase = await createClient()
@@ -129,11 +136,12 @@ type QuestionInput = {
 
 type LessonInput = {
   title: string
-  order_number: number
+  order_number?: number
   is_active: boolean
   audio_url: string
   passage: string
   questions: QuestionInput[]
+  class_codes?: string[]
 }
 
 type LessonAdminRow = {
@@ -145,6 +153,7 @@ type LessonAdminRow = {
   is_active: boolean
   created_at: string
   updated_at?: string
+  class_codes?: string[]
 }
 
 type LessonAdminDetail = LessonAdminRow & {
@@ -157,7 +166,8 @@ function validateLessonInput(input: LessonInput): { valid: boolean; message?: st
   if (!input.title || input.title.trim().length === 0 || input.title.length > 200) {
     return { valid: false, message: 'Tên bài phải từ 1-200 ký tự' }
   }
-  if (!Number.isInteger(input.order_number) || input.order_number <= 0) {
+  // order_number is optional now - will be auto-generated
+  if (input.order_number !== undefined && (!Number.isInteger(input.order_number) || input.order_number <= 0)) {
     return { valid: false, message: 'Thứ tự bài phải là số nguyên dương' }
   }
   if (!input.audio_url || !/^audio\/lesson_\d+_[a-z0-9]+\.mp3$/.test(input.audio_url)) {
@@ -195,6 +205,35 @@ async function checkOrderNumberUnique(supabase: SupabaseClient, orderNumber: num
   return !data
 }
 
+async function getNextOrderNumber(supabase: SupabaseClient, classCodes: string[]): Promise<number> {
+  if (!classCodes || classCodes.length === 0) {
+    // For lessons visible to all classes, get global max order_number
+    const { data } = await supabase
+      .from('lessons')
+      .select('order_number')
+      .eq('class_codes', '{}')
+      .order('order_number', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+    return (data?.order_number ?? 0) + 1
+  }
+  // For lessons assigned to specific classes, get max order_number among those classes
+  let maxOrder = 0
+  for (const classCode of classCodes) {
+    const { data } = await supabase
+      .from('lessons')
+      .select('order_number')
+      .contains('class_codes', [classCode])
+      .order('order_number', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+    if (data && data.order_number > maxOrder) {
+      maxOrder = data.order_number
+    }
+  }
+  return maxOrder + 1
+}
+
 /** CREATE: transaction lessons + questions */
 export async function createLesson(input: LessonInput): Promise<{ success: boolean; lessonId?: number; message?: string }> {
   const guard = await assertAdmin()
@@ -205,8 +244,12 @@ export async function createLesson(input: LessonInput): Promise<{ success: boole
   const validation = validateLessonInput(input)
   if (!validation.valid) return { success: false, message: validation.message }
 
-  if (!(await checkOrderNumberUnique(supabase, input.order_number))) {
-    return { success: false, message: `Thứ tự bài ${input.order_number} đã tồn tại` }
+  // Auto-generate order_number if not provided
+  const classCodes = input.class_codes || []
+  const orderNumber = input.order_number ?? (await getNextOrderNumber(supabase, classCodes))
+
+  if (!(await checkOrderNumberUnique(supabase, orderNumber))) {
+    return { success: false, message: `Thứ tự bài ${orderNumber} đã tồn tại` }
   }
 
   // Insert lesson
@@ -214,11 +257,12 @@ export async function createLesson(input: LessonInput): Promise<{ success: boole
     .from('lessons')
     .insert({
       title: input.title.trim(),
-      order_number: input.order_number,
+      order_number: orderNumber,
       is_active: input.is_active,
       audio_url: input.audio_url,
       passage: input.passage,
       total_questions: input.questions.length,
+      class_codes: classCodes,
     })
     .select('id')
     .single()
@@ -233,9 +277,7 @@ export async function createLesson(input: LessonInput): Promise<{ success: boole
     question_number: q.question_number,
     correct_answer: (q.correct_answer ?? '').trim(),
   }))
-  // Thêm dòng này trước insert questions (line ~230)
-  console.log('DEBUG questionsToInsert:', JSON.stringify(questionsToInsert, null, 2))
-  const { error: qError } = await supabase.from('questions').insert(questionsToInsert)
+    const { error: qError } = await supabase.from('questions').insert(questionsToInsert)
   if (qError) {
     // Rollback lesson
     await supabase.from('lessons').delete().eq('id', lesson.id)
@@ -254,7 +296,7 @@ export async function getLessonsAdmin(): Promise<LessonAdminRow[]> {
 
   const { data, error } = await supabase
     .from('lessons')
-    .select('id, title, order_number, audio_url, total_questions, is_active, created_at')
+    .select('id, title, order_number, audio_url, total_questions, is_active, created_at, updated_at, class_codes')
     .order('order_number', { ascending: true })
 
   if (error) {
@@ -272,7 +314,7 @@ export async function getLessonAdmin(lessonId: number): Promise<LessonAdminDetai
 
   const { data: lesson, error: lessonError } = await supabase
     .from('lessons')
-    .select('id, title, order_number, audio_url, passage, total_questions, is_active, created_at, updated_at')
+    .select('id, title, order_number, audio_url, passage, total_questions, is_active, created_at, updated_at, class_codes')
     .eq('id', lessonId)
     .single()
 
@@ -302,8 +344,12 @@ export async function updateLesson(lessonId: number, input: LessonInput): Promis
   const validation = validateLessonInput(input)
   if (!validation.valid) return { success: false, message: validation.message }
 
-  if (!(await checkOrderNumberUnique(supabase, input.order_number, lessonId))) {
-    return { success: false, message: `Thứ tự bài ${input.order_number} đã tồn tại` }
+  // Auto-generate order_number if not provided
+  const classCodes = input.class_codes || []
+  const orderNumber = input.order_number ?? (await getNextOrderNumber(supabase, classCodes))
+
+  if (!(await checkOrderNumberUnique(supabase, orderNumber, lessonId))) {
+    return { success: false, message: `Thứ tự bài ${orderNumber} đã tồn tại` }
   }
 
   // Check lesson exists
@@ -316,22 +362,41 @@ export async function updateLesson(lessonId: number, input: LessonInput): Promis
     return { success: false, message: 'Bài không tồn tại' }
   }
 
-  // Update lesson
+  // Check for existing submissions - nếu đã có submissions thì không cho sửa questions/passage
+  // (để bảo toàn dữ liệu thesis, giống deleteLesson)
+  const { count: subCount, error: countError } = await supabase
+    .from('submissions')
+    .select('id', { count: 'exact', head: true })
+    .eq('lesson_id', lessonId)
+
+  if (countError) {
+    return { success: false, message: 'Kiểm tra submissions thất bại: ' + countError.message }
+  }
+
+  const hasSubmissions = (subCount ?? 0) > 0
+
+  // Update lesson (luôn cho sửa title, order_number, is_active, audio_url, class_codes)
   const { error: lessonError } = await supabase
     .from('lessons')
     .update({
       title: input.title.trim(),
-      order_number: input.order_number,
+      order_number: orderNumber,
       is_active: input.is_active,
       audio_url: input.audio_url,
-      passage: input.passage,
       total_questions: input.questions.length,
+      class_codes: classCodes,
       updated_at: new Date().toISOString(),
     })
     .eq('id', lessonId)
 
   if (lessonError) {
     return { success: false, message: 'Cập nhật bài thất bại: ' + lessonError.message }
+  }
+
+  // Nếu đã có submissions → KHÔNG cho sửa passage/questions (bảo toàn đáp án chấm đã nộp)
+  if (hasSubmissions) {
+    revalidatePath('/admin/lessons')
+    return { success: true, message: 'Cập nhật bài thành công (đã có submissions → không thay đổi đáp án/đoạn văn)' }
   }
 
   // Delete old questions
@@ -358,12 +423,30 @@ export async function updateLesson(lessonId: number, input: LessonInput): Promis
   return { success: true, message: 'Cập nhật bài thành công' }
 }
 
-/** DELETE: xóa lesson + questions + (optional) R2 audio object */
+/** DELETE: xóa lesson + questions + (optional) R2 audio object
+ *  Chặn xóa nếu bài đã có submissions (bảo toàn dữ liệu thesis) */
 export async function deleteLesson(lessonId: number): Promise<{ success: boolean; message?: string }> {
   const guard = await assertAdmin()
   if (guard.error) return { success: false, message: guard.error }
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const { supabase, user: _user } = guard
+
+  // Check for existing submissions
+  const { count: subCount, error: countError } = await supabase
+    .from('submissions')
+    .select('id', { count: 'exact', head: true })
+    .eq('lesson_id', lessonId)
+
+  if (countError) {
+    return { success: false, message: 'Kiểm tra submissions thất bại: ' + countError.message }
+  }
+
+  if ((subCount ?? 0) > 0) {
+    return {
+      success: false,
+      message: `Không thể xóa: bài này đã có ${subCount} lượt làm. Hãy dùng "Vô hiệu hóa" (is_active = false) để ẩn bài thay vì xóa.`
+    }
+  }
 
   // Get audio_url for optional R2 delete
   const { data: lesson } = await supabase
@@ -372,7 +455,7 @@ export async function deleteLesson(lessonId: number): Promise<{ success: boolean
     .eq('id', lessonId)
     .maybeSingle()
 
-  // Delete questions first (FK)
+  // Delete questions (no submissions exist, so no submission_answers FK conflict)
   const { error: qError } = await supabase
     .from('questions')
     .delete()
@@ -402,10 +485,7 @@ export async function deleteLesson(lessonId: number): Promise<{ success: boolean
         },
         forcePathStyle: true,
       })
-      await s3.send(new PutObjectCommand({ Bucket: process.env.R2_BUCKET_NAME, Key: lesson.audio_url, Body: '' }))
-      // Actually use DeleteObjectCommand
-      const { DeleteObjectCommand } = await import('@aws-sdk/client-s3')
-      await s3.send(new DeleteObjectCommand({ Bucket: process.env.R2_BUCKET_NAME, Key: lesson.audio_url }))
+            await s3.send(new DeleteObjectCommand({ Bucket: process.env.R2_BUCKET_NAME!, Key: lesson.audio_url }))
     } catch (e) {
       console.warn('Failed to delete R2 audio:', e)
     }
@@ -452,4 +532,21 @@ export async function getAudioPresignedPut(filename: string): Promise<{ success:
     console.error('Presigned PUT error:', e)
     return { success: false, message: 'Không tạo được presigned PUT: ' + (e instanceof Error ? e.message : 'Unknown') }
   }
+}
+
+/** Get all classes for dropdown/checkbox selection */
+export async function getClasses(): Promise<{ success: boolean; data?: ClassOption[]; message?: string }> {
+  const guard = await assertAdmin()
+  if (guard.error) return { success: false, message: guard.error }
+  const { supabase } = guard
+
+  const { data, error } = await supabase
+    .from('classes')
+    .select('code, name, is_advanced, sort_order')
+    .order('sort_order', { ascending: true })
+
+  if (error) {
+    return { success: false, message: 'Lấy danh sách lớp thất bại: ' + error.message }
+  }
+  return { success: true, data: (data as ClassOption[]) || [] }
 }

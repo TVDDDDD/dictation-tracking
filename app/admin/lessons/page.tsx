@@ -1,13 +1,21 @@
 
-import LessonRow from './components/LessonRow'
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { getLessonsAdmin } from '@/app/admin/actions'
 import BrandLogo from '@/app/components/BrandLogo'
+import LessonRow from './components/LessonRow'
 
-export default async function LessonsListPage() {
+const PAGE_SIZE = 10
+
+export default async function LessonsListPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ page?: string }>
+}) {
   const supabase = await createClient()
+  const params = await searchParams
+  const page = Math.max(1, Number(params.page || 1))
 
   const {
     data: { user },
@@ -27,6 +35,8 @@ export default async function LessonsListPage() {
   }
 
   const lessons = await getLessonsAdmin()
+  const totalPages = Math.ceil(lessons.length / PAGE_SIZE)
+  const paginatedLessons = lessons.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
 
   return (
     <div className="app-page">
@@ -41,7 +51,6 @@ export default async function LessonsListPage() {
               kicker="LESSON MANAGEMENT"
               name="Quản lý bài nghe"
             />
-           
           </div>
         </div>
       </header>
@@ -69,26 +78,54 @@ export default async function LessonsListPage() {
             </Link>
           </div>
         ) : (
-          <div className="bg-white rounded-lg shadow overflow-hidden">
-            <table className="min-w-full">
-              <thead className="bg-gray-50 border-b">
-                <tr>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider w-12">STT</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Tên bài</th>
-                  <th className="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider w-20">Thứ tự</th>
-                  <th className="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider w-28">Audio</th>
-                  <th className="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider w-20">Số câu</th>
-                  <th className="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider w-32">Trạng thái</th>
-                  <th className="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider w-48">Thao tác</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100">
-                {lessons.map((lesson, index) => (
-                  <LessonRow lesson={lesson} index={index} key={lesson.id} />
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <>
+            <div className="bg-white rounded-lg shadow overflow-hidden">
+              <table className="min-w-full">
+                <thead className="bg-gray-50 border-b">
+                  <tr>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider w-12">STT</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Tên bài</th>
+                    <th className="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider w-20">Thứ tự</th>
+                    <th className="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider w-28">Audio</th>
+                    <th className="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider w-20">Số câu</th>
+                    <th className="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider w-32">Trạng thái</th>
+                    <th className="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider w-40">Lớp</th>
+                    <th className="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider w-48">Thao tác</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {paginatedLessons.map((lesson, index) => (
+                    <LessonRow lesson={lesson} index={(page - 1) * PAGE_SIZE + index} key={lesson.id} />
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Pagination */}
+            {totalPages > 1 && (
+              <div className="flex items-center justify-center gap-2 mt-6">
+                {page > 1 && (
+                  <Link
+                    href={`/admin/lessons?page=${page - 1}`}
+                    className="button button-secondary button-small"
+                  >
+                    ← Trước
+                  </Link>
+                )}
+                <span className="px-4 text-sm text-gray-600">
+                  Trang {page} / {totalPages}
+                </span>
+                {page < totalPages && (
+                  <Link
+                    href={`/admin/lessons?page=${page + 1}`}
+                    className="button button-secondary button-small"
+                  >
+                    Sau →
+                  </Link>
+                )}
+              </div>
+            )}
+          </>
         )}
       </main>
     </div>

@@ -9,8 +9,10 @@ type Lesson = {
   order_number: number;
 };
 
+type ClassItem = { code: string; name: string };
+
 type Props = {
-  classList: string[];
+  classList: ClassItem[];
   lessons: Lesson[];
   currentParams: { [key: string]: string | undefined };
 };
@@ -59,8 +61,8 @@ export default function AdminFilters({
           >
             <option value="">Tất cả lớp</option>
             {classList.map((c) => (
-              <option key={c} value={c}>
-                {c}
+              <option key={c.code} value={c.code}>
+                {c.name}
               </option>
             ))}
           </select>

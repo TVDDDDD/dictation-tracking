@@ -32,9 +32,11 @@ type GrantRow = {
   granted_at: string;
 };
 
+type ClassItem = { code: string; name: string };
+
 type Props = {
   lessons: Lesson[];
-  classList: string[];
+  classList: ClassItem[];
 };
 
 function fmtDate(iso: string) {
@@ -52,7 +54,7 @@ export default function LessonAccessPanel({ lessons, classList }: Props) {
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
 
   // Dropdown state
-  const [selectedClass, setSelectedClass] = useState<string>(() => classList[0] || "");
+  const [selectedClass, setSelectedClass] = useState<string>(() => classList[0]?.code || "");
   const [currentPage, setCurrentPage] = useState(1);
 
   const lessonIds = lessons.map((l) => l.id).join(",");
@@ -237,8 +239,8 @@ export default function LessonAccessPanel({ lessons, classList }: Props) {
                   disabled={classList.length === 0}
                 >
                   {classList.map((c) => (
-                    <option key={c} value={c}>
-                      {c}
+                    <option key={c.code} value={c.code}>
+                      {c.code}
                     </option>
                   ))}
                 </select>

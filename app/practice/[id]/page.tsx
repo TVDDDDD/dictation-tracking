@@ -131,7 +131,7 @@ export default function PracticePage() {
       const hasSubmission = submissions.length > 0
       const classCode = (profileResult.data?.class_code || '').trim()
       const lessonOpenForClass = (accessResult.data || []).some(
-        (a) => a.class_code === classCode
+        (a: { class_code: string }) => a.class_code === classCode
       )
       const hasUnusedGrant =
         Boolean(grantResult.data) && submissions.length < 2
