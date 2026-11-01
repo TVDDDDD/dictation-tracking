@@ -326,22 +326,23 @@ export async function updateLesson(lessonId: number, input: LessonInput): Promis
   const validation = validateLessonInput(input)
   if (!validation.valid) return { success: false, message: validation.message }
 
-  // Auto-generate order_number if not provided
+  // Get existing lesson to preserve order_number if not provided
+  const { data: existing } = await supabase
+    .from('lessons')
+    .select('order_number')
+    .eq('id', lessonId)
+    .maybeSingle()
+
+  if (!existing) {
+    return { success: false, message: 'Bài không tồn tại' }
+  }
+
+  // Use provided order_number, or keep existing one (don't auto-generate on update)
+  const orderNumber = input.order_number ?? existing.order_number
   const classCodes = input.class_codes || []
-  const orderNumber = input.order_number ?? (await getNextOrderNumber(supabase, classCodes))
 
   if (!(await checkOrderNumberUnique(supabase, orderNumber, lessonId))) {
     return { success: false, message: `Thứ tự bài ${orderNumber} đã tồn tại` }
-  }
-
-  // Check lesson exists
-  const { data: existing, error: existError } = await supabase
-    .from('lessons')
-    .select('id')
-    .eq('id', lessonId)
-    .maybeSingle()
-  if (existError || !existing) {
-    return { success: false, message: 'Bài không tồn tại' }
   }
 
   // Check for existing submissions - nếu đã có submissions thì không cho sửa questions/passage
@@ -531,4 +532,33 @@ export async function getClasses(): Promise<{ success: boolean; data?: ClassOpti
     return { success: false, message: 'Lấy danh sách lớp thất bại: ' + error.message }
   }
   return { success: true, data: (data as ClassOption[]) || [] }
+}
+
+/** RE-SEQUENCE: gán lại order_number toàn cục 1,2,3... theo created_at */
+export async function resequenceLessons(): Promise<{ success: boolean; message?: string }> {
+  const guard = await assertAdmin()
+  if (guard.error) return { success: false, message: guard.error }
+  const { supabase } = guard
+
+  const { data: lessons, error } = await supabase
+    .from('lessons')
+    .select('id, created_at')
+    .order('created_at', { ascending: true })
+
+  if (error || !lessons) {
+    return { success: false, message: 'Lấy danh sách bài thất bại: ' + (error?.message || 'Unknown') }
+  }
+
+  for (let i = 0; i < lessons.length; i++) {
+    const { error: upErr } = await supabase
+      .from('lessons')
+      .update({ order_number: i + 1 })
+      .eq('id', lessons[i].id)
+    if (upErr) {
+      return { success: false, message: `Cập nhật bài ${lessons[i].id} thất bại: ` + upErr.message }
+    }
+  }
+
+  revalidatePath('/admin/lessons')
+  return { success: true, message: `Đã cấp lại thứ tự cho ${lessons.length} bài (1..${lessons.length})` }
 }
