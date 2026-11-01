@@ -509,7 +509,7 @@ export default function EditLessonPage() {
 
                 <div className="p-4 bg-gray-50 rounded-lg">
                   <h4 className="font-medium text-gray-700 mb-2">Đoạn văn Preview</h4>
-                  <div className="prose max-w-none text-sm leading-relaxed">
+                  <div className="prose max-w-none text-sm leading-relaxed whitespace-pre-wrap">
                     {formData.passage
                       .split(/\{\{(\d+)\}\}/)
                       .map((part, idx) => {
