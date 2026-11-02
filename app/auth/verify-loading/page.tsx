@@ -5,6 +5,8 @@ import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import BrandLogo from "@/app/components/BrandLogo";
 
+export const dynamic = "force-dynamic";
+
 export default function VerifyLoadingPage() {
   const searchParams = useSearchParams();
   const next = searchParams.get("next") || "/dashboard";
