@@ -1,22 +1,24 @@
 "use client";
 
-import { useEffect } from "react";
-import { useSearchParams } from "next/navigation";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import BrandLogo from "@/app/components/BrandLogo";
 
-export const dynamic = "force-dynamic";
-
 export default function VerifyLoadingPage() {
-  const searchParams = useSearchParams();
-  const next = searchParams.get("next") || "/dashboard";
+  const [next, setNext] = useState("/dashboard");
 
   useEffect(() => {
+    // Read search params from window.location (client-side only)
+    const params = new URLSearchParams(window.location.search);
+    const nextParam = params.get("next");
+    if (nextParam) setNext(nextParam);
+
+    // Auto redirect after delay
     const timer = setTimeout(() => {
-      window.location.href = next;
+      window.location.href = nextParam || "/dashboard";
     }, 1200);
     return () => clearTimeout(timer);
-  }, [next]);
+  }, []);
 
   return (
     <main className="auth-shell">
