@@ -1,24 +1,23 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import Link from "next/link";
 import BrandLogo from "@/app/components/BrandLogo";
 
 export default function VerifyLoadingPage() {
-  const [next, setNext] = useState("/dashboard");
-
   useEffect(() => {
-    // Read search params from window.location (client-side only)
+    // Auto redirect after delay
     const params = new URLSearchParams(window.location.search);
     const nextParam = params.get("next");
-    if (nextParam) setNext(nextParam);
-
-    // Auto redirect after delay
     const timer = setTimeout(() => {
       window.location.href = nextParam || "/dashboard";
     }, 1200);
     return () => clearTimeout(timer);
   }, []);
+
+  // Read searchParams during render (after hydration) - no state needed
+  const searchParams = typeof window !== "undefined" ? new URLSearchParams(window.location.search) : null;
+  const displayNext = searchParams?.get("next") || "/dashboard";
 
   return (
     <main className="auth-shell">
@@ -42,7 +41,7 @@ export default function VerifyLoadingPage() {
             </div>
             <p className="text-xs text-gray-400">
               Nếu không chuyển hướng tự động,
-              <Link href={next} className="text-blue-600 hover:underline ml-1">
+              <Link href={displayNext} className="text-blue-600 hover:underline ml-1">
                 bấm vào đây
               </Link>
             </p>

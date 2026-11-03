@@ -45,9 +45,13 @@ export async function getPracticeAnswers(lessonId: number) {
     return { success: false, message: 'Không tìm thấy câu hỏi của bài này' }
   }
 
-  const answersMap: Record<number, string> = {}
+  const answersMap: Record<number, { display: string; variants: string[] }> = {}
   for (const q of questions) {
-    answersMap[q.question_number] = q.correct_answer
+    const variants = q.correct_answer.split('|').map((v: string) => v.trim()).filter((v: string) => v)
+    answersMap[q.question_number] = {
+      display: variants[0], // đáp án đầu tiên để hiển thị
+      variants: variants.map((v: string) => v.toLowerCase()) // tất cả biến thể để chấm
+    }
   }
 
   return { success: true, answers: answersMap }
@@ -203,7 +207,7 @@ export async function submitPractice(
     return { success: false, message: 'Không tìm thấy câu hỏi của bài này' }
   }
 
-  // 4. Chấm điểm
+  // 4. Chấm điểm (hỗ trợ nhiều đáp án đúng cách nhau bằng |)
   let correctCount = 0
   const answerDetails: {
     question_id: string
@@ -213,8 +217,9 @@ export async function submitPractice(
 
   questions.forEach((q) => {
     const userAns = (answers[q.question_number] || '').trim().toLowerCase()
-    const correctAns = q.correct_answer.trim().toLowerCase()
-    const isCorrect = userAns === correctAns
+    // Split correct_answer by | để hỗ trợ nhiều biến thể: "harbour|harbor" hoặc "eighteenth century|18th century"
+    const correctVariants = q.correct_answer.split('|').map((v: string) => v.trim().toLowerCase()).filter((v: string) => v)
+    const isCorrect = correctVariants.includes(userAns)
 
     if (isCorrect) correctCount++
 

@@ -54,7 +54,7 @@ export default function PracticePage() {
   // Post-submit UX states
   const [postMode, setPostMode] = useState<PostSubmitMode>('result')
   const [practicePhase, setPracticePhase] = useState<PracticePhase>('answering')
-  const [practiceAnswers, setPracticeAnswers] = useState<Record<number, string>>({})
+  const [practiceAnswers, setPracticeAnswers] = useState<Record<number, { display: string; variants: string[] }>>({})
   const [practiceLimit, setPracticeLimit] = useState<{ count: number; allowed: boolean; remaining: number } | null>(null)
   const [practiceAnswersFetched, setPracticeAnswersFetched] = useState(false)
 
@@ -552,7 +552,12 @@ export default function PracticePage() {
                 />
                 {(isSubmitted && !isPracticeMode && !isCorrect && correctAnswersMap[num]) || (isPracticeMode && isChecked && !isCorrect && practiceAnswers[num]) ? (
                   <span className="ml-1 text-xs text-green-700">
-                    ({(isSubmitted && !isPracticeMode) ? correctAnswersMap[num] : practiceAnswers[num]})
+                    {(() => {
+                      if (isSubmitted && !isPracticeMode) return correctAnswersMap[num]
+                      const pa = practiceAnswers[num]
+                      // practiceAnswers[num] is { display, variants }
+                      return pa?.display || (typeof pa === 'string' ? pa : '')
+                    })()}
                   </span>
                 ) : null}
               </span>
@@ -668,11 +673,14 @@ export default function PracticePage() {
 
     for (const q of questions) {
       const userAns = (answers[q.question_number] || '').trim().toLowerCase()
-      const correctAns = (practiceAnswers[q.question_number] || '').trim().toLowerCase()
-      const isCorrect = userAns === correctAns
+      const answerData = practiceAnswers[q.question_number]
+      // practiceAnswers now has { display, variants } structure
+      const correctVariants = answerData?.variants || [(answerData?.display || '').toLowerCase()]
+      const displayAnswer = answerData?.display || ''
+      const isCorrect = correctVariants.includes(userAns)
 
       newResultsMap[q.question_number] = isCorrect
-      newCorrectMap[q.question_number] = practiceAnswers[q.question_number] || ''
+      newCorrectMap[q.question_number] = displayAnswer
     }
 
     setResultsMap(newResultsMap)

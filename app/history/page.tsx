@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import BrandLogo from "@/app/components/BrandLogo";
+import { utcToVietnamTime } from "@/lib/admin-utils";
 
 type LessonSummary = {
   title: string;
@@ -122,7 +123,7 @@ export default async function HistoryPage() {
                       <p className="history-meta">
                         {lesson?.order_number != null && `Bài số ${lesson.order_number} • `}
                         {attemptBadge}
-                        Ngày làm: {new Date(item.submitted_at).toLocaleString("vi-VN")}
+                        Ngày làm: {utcToVietnamTime(item.submitted_at)}
                       </p>
                     </div>
                     <div className="history-right">

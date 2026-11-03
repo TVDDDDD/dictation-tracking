@@ -3,6 +3,7 @@
 import { useEffect, useState, useMemo } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { toggleLessonAccess, grantMakeup } from "./actions";
+import { utcToVietnamTime } from "@/lib/admin-utils";
 
 type Lesson = {
   id: number;
@@ -38,10 +39,6 @@ type Props = {
   lessons: Lesson[];
   classList: ClassItem[];
 };
-
-function fmtDate(iso: string) {
-  return new Date(iso).toLocaleString("vi-VN");
-}
 
 const PAGE_SIZE = 10;
 
@@ -324,7 +321,7 @@ export default function LessonAccessPanel({ lessons, classList }: Props) {
                             </td>
                             <td className="px-4 py-3 text-center align-top">
                               {cell ? (
-                                <span className="text-xs text-gray-400">{fmtDate(cell.granted_at)}</span>
+                                <span className="text-xs text-gray-400">{utcToVietnamTime(cell.granted_at)}</span>
                               ) : (
                                 <span className="text-xs text-gray-400">—</span>
                               )}

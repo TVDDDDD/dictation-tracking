@@ -62,3 +62,13 @@ export function escapeCsvCell(value: string | number | null | undefined): string
 
   return str
 }
+
+/** Chuyển ISO UTC string sang giờ Việt Nam (UTC+7) để hiển thị - KHÔNG phụ thuộc múi giờ trình duyệt */
+export function utcToVietnamTime(isoString: string | null | undefined): string {
+  if (!isoString) return '—'
+  const date = new Date(isoString)
+  if (isNaN(date.getTime())) return '—'
+  // UTC+7 = +7 hours
+  const vnDate = new Date(date.getTime() + 7 * 60 * 60 * 1000)
+  return vnDate.toISOString().replace('T', ' ').slice(0, 19)
+}

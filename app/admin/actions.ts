@@ -205,7 +205,7 @@ async function checkOrderNumberUnique(supabase: SupabaseClient, orderNumber: num
   return !data
 }
 
-async function getNextOrderNumber(supabase: SupabaseClient, _classCodes: string[]): Promise<number> {
+async function getNextOrderNumber(supabase: SupabaseClient): Promise<number> {
   // Global sequence: max order_number across all lessons + 1
   const { data } = await supabase
     .from('lessons')
@@ -228,7 +228,7 @@ export async function createLesson(input: LessonInput): Promise<{ success: boole
 
   // Auto-generate order_number if not provided
   const classCodes = input.class_codes || []
-  const orderNumber = input.order_number ?? (await getNextOrderNumber(supabase, classCodes))
+  const orderNumber = input.order_number ?? (await getNextOrderNumber(supabase))
 
   if (!(await checkOrderNumberUnique(supabase, orderNumber))) {
     return { success: false, message: `Thứ tự bài ${orderNumber} đã tồn tại` }

@@ -4,7 +4,7 @@ import Link from "next/link";
 import AdminFilters from "./AdminFilters";
 import LessonAccessPanel from "./LessonAccessPanel";
 import { fetchAllFullSubmissions } from "@/lib/fetch-all-submissions";
-import { vietnamDateToUTC, isValidDateString } from "@/lib/admin-utils";
+import { vietnamDateToUTC, isValidDateString, utcToVietnamTime } from "@/lib/admin-utils";
 import BrandLogo from "@/app/components/BrandLogo";
 
 export default async function AdminPage({
@@ -232,7 +232,7 @@ export default async function AdminPage({
                     <td className="px-4 py-3">{item.listen_count ?? 0} lần</td>
                     <td className="px-4 py-3">{item.attempt_number ?? 1}</td>
                     <td className="px-4 py-3 text-gray-600">
-                      {new Date(item.submitted_at).toLocaleString("vi-VN")}
+                      {utcToVietnamTime(item.submitted_at)}
                     </td>
                   </tr>
                 ))

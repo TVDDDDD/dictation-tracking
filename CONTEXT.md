@@ -364,3 +364,38 @@ Creates new project ref → update Vercel env vars → redeploy.
 - ✅ Free tier capacity confirmed for 300 SV / 5 weeks
 
 **Next action:** `git push` any final changes → Monitor UptimeRobot/Vercel day 1.
+
+---
+
+## 📝 RECENT FIXES (2026-11-04)
+
+### Timestamp Display Fix (UTC+7 Việt Nam)
+| File | Change |
+|------|--------|
+| `lib/admin-utils.ts` | Added `utcToVietnamTime()` utility (fixed UTC+7, không dùng `toLocaleString("vi-VN")`) |
+| `app/admin/page.tsx` | Submission timestamps dùng `utcToVietnamTime()` |
+| `app/history/page.tsx` | Submission timestamps dùng `utcToVietnamTime()` |
+| `app/admin/LessonAccessPanel.tsx` | `granted_at` timestamps dùng `utcToVietnamTime()` (2 chỗ) |
+
+**Vấn đề gốc:** DB lưu `timestamptz` (UTC), hiển thị dùng `toLocaleString("vi-VN")` → phụ thuộc timezone browser → sai khi SV/admin ở múi giờ khác.
+
+### Grading Logic: Multiple Acceptable Answers (`|` delimiter)
+| File | Change |
+|------|--------|
+| `app/practice/[id]/actions.ts` (`submitPractice`) | Split `correct_answer` by `\|`, check `includes(userAns)` |
+| `app/practice/[id]/actions.ts` (`getPracticeAnswers`) | Trả về `{ display, variants[] }` cho practice mode |
+| `app/practice/[id]/page.tsx` | `checkPracticeAnswers` dùng `variants` để chấm, hiển thị `display` (biến thể đầu) |
+
+**Cách dùng:** Admin nhập `correct_answer` dạng `harbour|harbor` hoặc `eighteenth century|18th century` → SV nhập bất kỳ biến thể nào → được điểm.
+
+> ⚠️ Chỉ ảnh hưởng bài nộp **MỚI** (sau deploy). Bài cũ cần chạy SQL script re-grade riêng (chỉ `UPDATE`, không DDL).
+
+### Lint & TypeScript Fixes
+| File | Issue | Fix |
+|------|-------|-----|
+| `app/auth/verify-loading/page.tsx` | `setState` trong effect (error) | Bỏ state, đọc `window.location.search` trực tiếp trong render (sau hydration) |
+| `app/admin/actions.ts` | Unused param `_classCodes` (warning) | Xoá param khỏi `getNextOrderNumber` + call site |
+
+### Verification
+- ✅ `npm run lint` — 0 errors, 0 warnings
+- ✅ `npm run build` — TypeScript pass, compile success (`.next/` updated 1:49 AM)
