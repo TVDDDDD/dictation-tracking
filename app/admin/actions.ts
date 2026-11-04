@@ -378,8 +378,21 @@ export async function updateLesson(lessonId: number, input: LessonInput): Promis
 
   // Nếu đã có submissions → KHÔNG cho sửa passage/questions (bảo toàn đáp án chấm đã nộp)
   if (hasSubmissions) {
+    // Update lesson metadata + passage (allowed)
+    // Update correct_answer for existing questions only (upsert by question_number)
+    for (const q of input.questions) {
+      const { error: qUpdateError } = await supabase
+        .from('questions')
+        .update({ correct_answer: (q.correct_answer ?? '').trim() })
+        .eq('lesson_id', lessonId)
+        .eq('question_number', q.question_number)
+      if (qUpdateError) {
+        return { success: false, message: `Cập nhật đáp án câu ${q.question_number} thất bại: ` + qUpdateError.message }
+      }
+    }
+
     revalidatePath('/admin/lessons')
-    return { success: true, message: 'Cập nhật bài thành công (đã có submissions → không thay đổi đáp án/đoạn văn)' }
+    return { success: true, message: 'Cập nhật bài thành công (đã có submissions → chỉ cho sửa đáp án đúng, không thay đổi cấu trúc câu hỏi)' }
   }
 
   // Delete old questions
