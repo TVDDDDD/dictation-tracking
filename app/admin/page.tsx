@@ -118,6 +118,7 @@ export default async function AdminPage({
   if (fromDate) exportParams.set("from", fromDate);
   if (toDate) exportParams.set("to", toDate);
   const exportUrl = `/api/admin/export?${exportParams.toString()}`;
+  const exportPracticeUrl = `/api/admin/export-practice?${exportParams.toString()}`;
 
   return (
     <div className="app-page">
@@ -173,7 +174,7 @@ export default async function AdminPage({
               ↓ Xuất CSV bài làm
             </a>
             <a
-              href="/api/admin/export-practice"
+              href={exportPracticeUrl}
               className="bg-amber-600 text-white px-4 py-2 rounded-md hover:bg-amber-700 text-sm font-medium"
             >
               ↓ Xuất CSV ôn tập

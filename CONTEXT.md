@@ -398,4 +398,55 @@ Creates new project ref → update Vercel env vars → redeploy.
 
 ### Verification
 - ✅ `npm run lint` — 0 errors, 0 warnings
-- ✅ `npm run build` — TypeScript pass, compile success (`.next/` updated 1:49 AM)
+- ✅ `npm run build` — TypeScript pass, compile success (`.next/` updated 11:26 AM)
+
+### Admin UpdateLesson Fix (2026-11-04) — Option B
+| File | Change |
+|------|--------|
+| `app/admin/actions.ts` (`updateLesson`) | Bài có submissions: cho update `correct_answer` (upsert per `question_number`), chặn thêm/xoá câu hỏi |
+
+**Behavior:**
+- Admin thêm `| variant` → lưu ngay → chấm bài mới dùng variant mới
+- Bài cũ giữ điểm cũ → SQL re-grade khi cần
+- Validation vẫn yêu cầu `questions.length === blankCount`, `question_number` 1..N
+
+### Smoke Test (2026-11-04)
+| Scenario | Result |
+|----------|--------|
+| Grading `harbour|harbor` / `mould|mold` / `organiser|organizer` | ✅ Pass |
+| Practice mode check answers with variants | ✅ Pass |
+| Timestamp display UTC+7 (admin, history, LessonAccessPanel) | ✅ Pass |
+| Admin update lesson with submissions (add variant) | ✅ Pass |
+| Lint + Build | ✅ Pass |
+
+**Next action:** `git push` → Vercel deploy (off-hours) → Monitor UptimeRobot/Vercel day 1.
+
+---
+
+## ✅ DEPLOYMENT DONE (2026-11-04)
+
+| Item | Status |
+|------|--------|
+| **Vercel deploy** | ✅ Done (off-hours) |
+| **Lessons needing `|` variant fix** | 2 lessons — admin đã cập nhật qua UI (Option B: `updateLesson` cho sửa `correct_answer` khi có submissions) |
+| **Future lessons** | Tự động dùng grading logic mới (`|` variants) |
+| **Re-grade old submissions** | **Không cần** (chỉ 2 bài, admin đã sửa đáp án đúng; bài nộp cũ ít, không yêu cầu re-grade) |
+| **Monitoring** | UptimeRobot + Vercel Analytics active |
+
+---
+
+## 📋 FINAL STATUS — ALL GREEN
+
+| Area | Status |
+|------|--------|
+| Timestamp UTC+7 display | ✅ Fixed & deployed |
+| Grading `|` variants (submit + practice) | ✅ Fixed & deployed |
+| Empty variant guard | ✅ Fixed & deployed |
+| Admin update `correct_answer` with submissions | ✅ Fixed & deployed (Option B) |
+| Lint (0 errors, 0 warnings) | ✅ Pass |
+| Build (TypeScript + compile) | ✅ Pass |
+| Manual smoke test | ✅ Pass |
+| Production deploy | ✅ Done |
+| Lesson variant updates | ✅ Done (2 lessons) |
+
+**Thesis data collection ready.** No further action needed unless new issues arise.
