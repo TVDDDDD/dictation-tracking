@@ -2,7 +2,7 @@
 **Production Deployment for Monday Launch**  
 **Target:** Class NN1/D2026 (32 students) + 5 regular classes (~240 students total)  
 **Domain:** `https://successful-listening.online`  
-**Last Updated:** 2026-11-02
+**Last Updated:** 2026-11-05
 
 ---
 
@@ -423,6 +423,33 @@ Creates new project ref → update Vercel env vars → redeploy.
 
 ---
 
+## 🌙 DARK MODE (2026-11-05)
+
+| File | Change |
+|------|--------|
+| `app/globals.css` (block cuối file) | `html[data-theme="dark"]`: 15 CSS vars (nền xanh rêu mid-tone, KHÔNG đen — liền mạch gradient `.hero-band`/`.auth-aside` `#143e34–#276856`) + map ~50 Tailwind utilities hardcoded (`.bg-white`, `.bg-gray-*`, `.text-gray-400→900`, pastel `bg-blue/green/red-50`...) + component classes hardcode trắng (`.topbar`, `.practice-header`, `.lesson-card`, `.field-control`, `.data-table`, `.answer-input`, `.auth-field`, `.wizard-*`...) + `.theme-toggle` CSS |
+| `app/ThemeToggle.tsx` (mới) | Client component, `useSyncExternalStore` (không setState-in-effect — lint rule project). Nút fixed góc phải-dưới, mọi trang. Mode sáng: icon mặt trời + "Light mode"; mode tối: icon mặt trăng + "Dark mode". Click: flip `document.documentElement.dataset.theme` + `localStorage` |
+| `app/layout.tsx` | Inline script TRƯỚC render: `localStorage.theme === 'dark'` → apply (chống flash sáng). `suppressHydrationWarning` trên `<html>` (React 19: script set `data-theme` trước hydrate → không còn console warning). Mount `<ThemeToggle />` 1 lần trong `<body>` |
+
+**Behavior:**
+- Mặc định **Light**; chọn Dark → ghi `localStorage` → lần sau nhớ
+- Nền dark: solid `--paper` (#1c2823) + radial-gradient xanh rêu mờ trên cùng (tránh banding khi dùng `linear-gradient` 3 stop)
+- `.topbar`/`.practice-header`/`.auth-aside`/`.hero-band` đều đồng tông — không còn "vệt trắng"
+- Nút đặc màu (bg-blue/green/amber-600 + text-white) giữ nguyên (contrast tốt cả 2 mode)
+
+### Admin Nav Link (2026-11-05)
+| File | Change |
+|------|--------|
+| `app/admin/page.tsx` | Thêm nút "Quản lý bài nghe" → `/admin/lessons` trong topbar (sau nút "Tiến độ sinh viên"), class `button button-secondary` — admin khỏi lùi về dashboard để sang lessons |
+
+### Verification (2026-11-05)
+- ✅ `npm run lint` — 0 errors, 0 warnings
+- ✅ `npm run build` — pass (TypeScript + compile)
+- ✅ Responsive topbar 2 nút: `flex-wrap` (≤680px ẩn `user-chip`) + thu nhỏ nút (≤390px) — không cần thêm CSS
+- ⚠️ Chưa render test visual dark mode bằng mắt (contrast cần duyệt thủ công); rủi ro: pastel hiếm chưa liệt kê → bổ sung rule trong block dark, không đụng code
+
+---
+
 ## ✅ DEPLOYMENT DONE (2026-11-04)
 
 | Item | Status |
@@ -448,5 +475,7 @@ Creates new project ref → update Vercel env vars → redeploy.
 | Manual smoke test | ✅ Pass |
 | Production deploy | ✅ Done |
 | Lesson variant updates | ✅ Done (2 lessons) |
+| Dark mode toggle (3 files) | ✅ Done — default light, nhớ localStorage, mid-tone xanh rêu |
+| Admin nav link → /admin/lessons | ✅ Done |
 
 **Thesis data collection ready.** No further action needed unless new issues arise.

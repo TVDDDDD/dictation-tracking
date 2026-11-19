@@ -2184,7 +2184,7 @@ html[data-theme="dark"] {
   --coral-soft: #3c2820;
   --gold: #d8a84c;
   --danger: #dd6f5f;
-  --shadow-soft: 0 16px 44px rgba(0, 0, 0, 0.35);
+  --shadow-soft: 0 16px 44px rgba(0, 0, 0, 0.18);
 }
 
 html[data-theme="dark"] body {
@@ -2276,7 +2276,12 @@ html[data-theme="dark"] .lesson-card,
 html[data-theme="dark"] .surface-card {
   border-color: var(--line);
   background: var(--surface);
-  box-shadow: var(--shadow-soft);
+  box-shadow: none;
+}
+
+html[data-theme="dark"] .hero-band,
+html[data-theme="dark"] .brand-mark {
+  box-shadow: none;
 }
 
 html[data-theme="dark"] .lesson-card:hover {
