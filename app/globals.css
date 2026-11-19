@@ -2165,3 +2165,278 @@ audio {
   width: 100%;
   max-width: 100%;
 }
+
+/* ===== Dark Theme (html[data-theme="dark"]) ===== */
+html[data-theme="dark"] {
+  color-scheme: dark;
+  /* Nền xanh rêu mid-tone (không đen) — liền mạch với gradient #143e34–#276856 của hero/auth-aside */
+  --paper: #1c2823;
+  --surface: #243329;
+  --surface-muted: #2c3e34;
+  --ink: #e2ebe3;
+  --ink-soft: #b2c1b5;
+  --ink-faint: #86978b;
+  --line: #36483d;
+  --forest: #4c9a71;
+  --forest-deep: #3a7d5b;
+  --mint: #2a4a38;
+  --coral: #e2825f;
+  --coral-soft: #3c2820;
+  --gold: #d8a84c;
+  --danger: #dd6f5f;
+  --shadow-soft: 0 16px 44px rgba(0, 0, 0, 0.35);
+}
+
+html[data-theme="dark"] body {
+  background:
+    radial-gradient(ellipse at 50% -10%, rgba(68, 130, 97, 0.14), transparent 42%),
+    var(--paper);
+}
+
+html[data-theme="dark"] ::selection {
+  color: #e8f0e9;
+  background: #3d5c4a;
+}
+
+html[data-theme="dark"] .topbar {
+  border-bottom-color: var(--line);
+  background: rgba(28, 40, 35, 0.86);
+}
+
+html[data-theme="dark"] .practice-header {
+  border-bottom-color: var(--line);
+  background: rgba(28, 40, 35, 0.9);
+}
+
+/* Tailwind utilities hardcoded in components → dark equivalents */
+html[data-theme="dark"] .bg-white { background-color: var(--surface); }
+html[data-theme="dark"] .bg-gray-50 { background-color: var(--surface-muted); }
+html[data-theme="dark"] .bg-gray-100 { background-color: #1f2d25; }
+html[data-theme="dark"] .bg-gray-200 { background-color: #35463c; }
+html[data-theme="dark"] .bg-gray-400 { background-color: #4d5e55; }
+html[data-theme="dark"] .hover\:bg-gray-50:hover { background-color: var(--surface-muted); }
+html[data-theme="dark"] .hover\:bg-gray-100:hover { background-color: #1f2d25; }
+html[data-theme="dark"] .hover\:bg-gray-300:hover { background-color: #41544a; }
+html[data-theme="dark"] .disabled\:bg-gray-400:disabled { background-color: #4d5e55; }
+
+html[data-theme="dark"] .text-gray-400 { color: #86978b; }
+html[data-theme="dark"] .text-gray-500 { color: #a3b2a6; }
+html[data-theme="dark"] .text-gray-600 { color: #bccabf; }
+html[data-theme="dark"] .text-gray-700 { color: #d1ded4; }
+html[data-theme="dark"] .text-gray-800 { color: #dde8e0; }
+html[data-theme="dark"] .text-gray-900 { color: #e8f0ea; }
+
+html[data-theme="dark"] .border-gray-200 { border-color: #36483d; }
+html[data-theme="dark"] .border-gray-300 { border-color: #42554a; }
+
+html[data-theme="dark"] .bg-blue-50 { background-color: #26364a; }
+html[data-theme="dark"] .bg-green-50 { background-color: #1f352a; }
+html[data-theme="dark"] .bg-red-50 { background-color: #3c241d; }
+html[data-theme="dark"] .bg-yellow-100 { background-color: #3a331c; }
+html[data-theme="dark"] .bg-green-100 { background-color: #24402f; }
+html[data-theme="dark"] .border-blue-100 { border-color: #2e4258; }
+html[data-theme="dark"] .border-blue-400 { border-color: #5d8ac2; }
+html[data-theme="dark"] .border-green-400 { border-color: #55a273; }
+html[data-theme="dark"] .border-red-200 { border-color: #6b4136; }
+html[data-theme="dark"] .border-red-400 { border-color: #b05f50; }
+html[data-theme="dark"] .border-green-500 { border-color: #55a273; }
+html[data-theme="dark"] .border-red-500 { border-color: #c56a5a; }
+
+html[data-theme="dark"] .text-blue-600 { color: #8fb4e0; }
+html[data-theme="dark"] .text-blue-700 { color: #a5c4e8; }
+html[data-theme="dark"] .text-blue-800 { color: #bcd4f0; }
+html[data-theme="dark"] .text-green-600 { color: #7ec79c; }
+html[data-theme="dark"] .text-green-700 { color: #8fd4a8; }
+html[data-theme="dark"] .text-green-800 { color: #a5dfbb; }
+html[data-theme="dark"] .text-red-500 { color: #e08573; }
+html[data-theme="dark"] .text-red-600 { color: #e58a75; }
+html[data-theme="dark"] .text-red-700 { color: #ed9d8b; }
+html[data-theme="dark"] .text-yellow-600 { color: #d9a648; }
+html[data-theme="dark"] .text-yellow-800 { color: #d9a648; }
+
+/* Component classes with hardcoded light colors */
+html[data-theme="dark"] .button-secondary:hover:not(:disabled) {
+  border-color: #42554a;
+  background: var(--surface-muted);
+}
+
+html[data-theme="dark"] .button-danger {
+  border-color: #6b4136;
+  background: #3c241d;
+  color: #e58a75;
+}
+
+html[data-theme="dark"] .button-danger:hover:not(:disabled) {
+  border-color: #7a4536;
+  background: #46291f;
+  color: #ed9d8b;
+}
+
+html[data-theme="dark"] .lesson-card,
+html[data-theme="dark"] .surface-card {
+  border-color: var(--line);
+  background: var(--surface);
+  box-shadow: var(--shadow-soft);
+}
+
+html[data-theme="dark"] .lesson-card:hover {
+  border-color: #4a6a58;
+}
+
+html[data-theme="dark"] .empty-state {
+  border-color: var(--line);
+  background: var(--surface);
+}
+
+html[data-theme="dark"] .filter-panel {
+  background: var(--surface);
+}
+
+html[data-theme="dark"] .field-control {
+  border-color: var(--line);
+  background: var(--surface-muted);
+}
+
+html[data-theme="dark"] .field-control:focus {
+  border-color: #6daa85;
+  box-shadow: 0 0 0 3px rgba(109, 170, 133, 0.15);
+}
+
+html[data-theme="dark"] .data-table thead {
+  background: var(--surface-muted);
+  color: var(--ink-soft);
+}
+
+html[data-theme="dark"] .data-table td {
+  border-top-color: var(--line);
+}
+
+html[data-theme="dark"] .data-table tbody tr:hover {
+  background: var(--surface-muted);
+}
+
+html[data-theme="dark"] .score-good { color: #7ec79c; }
+html[data-theme="dark"] .score-mid { color: #d9a648; }
+
+html[data-theme="dark"] .progress-lesson {
+  border-color: var(--line);
+  background: #23332a;
+}
+
+html[data-theme="dark"] .progress-lesson.is-done {
+  border-color: #3d5c4a;
+  background: #1f352a;
+}
+
+html[data-theme="dark"] .progress-lesson-result { color: #7ec79c; }
+html[data-theme="dark"] .progress-lesson-missing { color: #71816f; }
+
+html[data-theme="dark"] .passage-box {
+  border-color: var(--line);
+  background: var(--surface-muted);
+  color: var(--ink-soft);
+}
+
+html[data-theme="dark"] .passage-highlight {
+  background: #453d1e;
+  color: #e0b860;
+}
+
+html[data-theme="dark"] .answer-input {
+  border-bottom-color: #4d7a64;
+  background: var(--surface-muted);
+  color: #cfe3d6;
+}
+
+html[data-theme="dark"] .answer-input:focus {
+  background: #3c2820;
+}
+
+html[data-theme="dark"] .answer-input.is-correct {
+  border-color: #55a273;
+  background: #1f352a;
+  color: #8fd4a8;
+}
+
+html[data-theme="dark"] .audio-note {
+  background: #2c2a18;
+  color: #d3a85c;
+  border-left-color: var(--gold);
+}
+
+html[data-theme="dark"] .result-box {
+  border-color: var(--line);
+  background: #1f352a;
+  color: #a5dfbb;
+}
+
+html[data-theme="dark"] .result-box strong { color: #8fd4a8; }
+html[data-theme="dark"] .audio-play-button:disabled { background: #42524a; }
+
+html[data-theme="dark"] .auth-field input,
+html[data-theme="dark"] .auth-field select {
+  border-color: var(--line);
+  background: var(--surface-muted);
+}
+
+html[data-theme="dark"] .auth-message.is-success {
+  border-color: #3d5c4a;
+  background: #1f352a;
+  color: #8fd4a8;
+}
+
+html[data-theme="dark"] .landing-feature-card {
+  border-color: var(--line);
+  background: var(--surface);
+}
+
+html[data-theme="dark"] .wizard-step {
+  background: #2b3a32;
+  color: #9aa89e;
+}
+
+html[data-theme="dark"] .wizard-step-label { color: #9aa89e; }
+html[data-theme="dark"] .wizard-step-label.active { color: #84aede; }
+html[data-theme="dark"] .wizard-connector { background: #2b3a32; }
+
+html[data-theme="dark"] .drop-zone:hover:not(:has(.animate-spin)) {
+  border-color: #4a78b3 !important;
+  background: #1d2c3f !important;
+}
+
+/* Theme toggle button (fixed, bottom-right, all pages) */
+.theme-toggle {
+  position: fixed;
+  right: 18px;
+  bottom: 18px;
+  z-index: 50;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 38px;
+  padding: 0 14px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--ink);
+  box-shadow: var(--shadow-soft);
+  font-family: var(--font-geist-sans), sans-serif;
+  font-size: 12px;
+  font-weight: 650;
+  cursor: pointer;
+  transition: background 160ms ease, border-color 160ms ease, color 160ms ease;
+}
+
+.theme-toggle:hover {
+  border-color: var(--forest);
+}
+
+@media (max-width: 390px) {
+  .theme-toggle {
+    right: 10px;
+    bottom: 10px;
+    min-height: 34px;
+    padding: 0 11px;
+    font-size: 11px;
+  }
+}

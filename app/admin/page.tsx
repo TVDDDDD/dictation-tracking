@@ -129,6 +129,9 @@ export default async function AdminPage({
             <Link href="/admin/progress" className="button button-secondary">
               Tiến độ sinh viên
             </Link>
+            <Link href="/admin/lessons" className="button button-secondary">
+              Quản lý bài nghe
+            </Link>
           </div>
           <span className="user-chip">
             Quản trị: <strong>{profile.full_name}</strong>
