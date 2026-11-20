@@ -18,7 +18,7 @@ type LessonRowProps = {
 
 export default function LessonRow({ lesson, index }: LessonRowProps) {
   const handleDelete = async () => {
-    if (confirm(`Xóa vĩnh viễn bài "${lesson.title}"?\nSẽ xóa cả audio, đáp án, lịch sử làm bài của SV.`)) {
+    if (confirm(`Xóa vĩnh viễn bài "${lesson.title}"?\nSẽ xóa cả audio + đáp án.\nLƯU Ý: nếu bài đã có SV làm, hệ thống sẽ TỪ CHỐT xóa — hãy dùng Sửa → "Cập nhật nháp" để ẩn bài thay vào đó.`)) {
       const res = await deleteLesson(lesson.id)
       alert(res.success ? 'Đã xóa' : 'Lỗi: ' + res.message)
       window.location.reload()

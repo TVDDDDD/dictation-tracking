@@ -171,7 +171,7 @@ export default async function DashboardPage({
 
             <span className="hero-meta">
               {visibleLessons.length
-                ? `${visibleLessons.length} bài đang mở`
+                ? `${visibleLessons.length} bài cho bạn`
                 : "Đang cập nhật nội dung"}
             </span>
           </div>
@@ -227,8 +227,8 @@ export default async function DashboardPage({
                     <h3>{lesson.title}</h3>
 
                     <p>
-                      Lắng nghe đoạn văn và điền chính xác những gì bạn nghe
-                      được.
+                      Lắng nghe đoạn văn và điền đúng những gì bạn nghe
+                      được (một số chỗ trống chấp nhận nhiều cách viết).
                     </p>
 
                     {href ? (

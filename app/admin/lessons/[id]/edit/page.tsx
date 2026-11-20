@@ -130,10 +130,6 @@ export default function EditLessonPage() {
     setFormData(prev => ({ ...prev, title: e.target.value }))
   }
 
-  const handleActiveChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setFormData(prev => ({ ...prev, is_active: e.target.checked }))
-  }
-
   const handleAudioUpload = async (file: File) => {
     setAudioUploading(true)
     setAudioError('')
@@ -312,10 +308,10 @@ export default function EditLessonPage() {
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Lớp áp dụng <span className="text-red-500">*</span>
+                  Lớp áp dụng
                 </label>
                 <p className="text-sm text-gray-500 mb-3">
-                  Chọn một hoặc nhiều lớp. Để trống = bài hiển thị cho tất cả lớp.
+                  Chọn một hoặc nhiều lớp. Để trống = bài hiển thị cho tất cả lớp, nhưng SV chỉ làm được khi bạn MỞ bài cho lớp đó ở panel &ldquo;Mở/đóng bài theo lớp&rdquo; (trang Quản trị).
                 </p>
                 <div className="space-y-2 max-h-60 overflow-y-auto border rounded-lg p-3">
                   {classes.map((c) => (
@@ -341,20 +337,8 @@ export default function EditLessonPage() {
                 {errors.class_codes && <p className="mt-1 text-sm text-red-500">{errors.class_codes}</p>}
               </div>
 
-              <div className="flex items-center">
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={formData.is_active}
-                    onChange={handleActiveChange}
-                    className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-                  />
-                  <span className="text-sm text-gray-700">Mở bài ngay sau khi lưu (is_active)</span>
-                </label>
-              </div>
-
               <p className="text-sm text-gray-500">
-                Thứ tự bài sẽ được gán tự động theo lớp (số lớn nhất hiện tại + 1). Số nhỏ hơn = hiển thị trước.
+                Thứ tự (order) của bài được giữ nguyên khi sửa. Số nhỏ hơn = hiển thị trước. Trạng thái Mở/Ẩn được quyết định bằng nút lưu ở Bước 4.
               </p>
 
               <div className="flex justify-end pt-4 border-t">
@@ -410,7 +394,7 @@ export default function EditLessonPage() {
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 15a4 4 0 01-4-4V5a2 2 0 012-2h6a2 2 0 012 2v6a4 4 0 01-4 4zm0 0H5M7 15h10M7 15l2.5-2.5M7 15l-2.5-2.5" />
                     </svg>
                     <p className="text-gray-600">Kéo thả file MP3 vào đây hoặc click để chọn</p>
-                    <p className="text-xs text-gray-400">Tối đa 50MB · Định dạng: audio/mpeg (MP3)</p>
+                    <p className="text-xs text-gray-400">Chỉ nên upload file .MP3 — định dạng khác (wav, m4a...) sẽ bị từ chối khi lưu bài.</p>
                     <label htmlFor="audio-file" className="button button-secondary button-small mt-2 inline-block">
                       Chọn file
                     </label>
@@ -458,6 +442,19 @@ export default function EditLessonPage() {
                 </div>
               )}
 
+              <div className="p-4 bg-blue-50 rounded-lg border border-blue-100">
+                <h4 className="font-medium text-blue-800 mb-2">Hướng dẫn:</h4>
+                <ul className="text-sm text-blue-700 space-y-1 list-disc list-inside">
+                  <li>
+                    Nhiều cách viết đúng cho 1 chỗ trống? Dùng dấu <code>|</code> (VD: <code>harbour|harbor</code>).
+                    Sinh viên nhập đúng biến thể nào cũng được điểm — không phân biệt hoa thường.
+                  </li>
+                  <li>
+                    ⚠ Nếu bài đã có SV làm: không thêm/xóa ô trống, không sửa đoạn văn — chỉ sửa được nội dung đáp án đúng.
+                  </li>
+                </ul>
+              </div>
+
               <div className="flex justify-between pt-4 border-t">
                 <button onClick={handleBack} className="button button-secondary">
                   ← Quay lại
@@ -486,8 +483,8 @@ export default function EditLessonPage() {
                       <dd className="font-medium">{formData.title || '—'}</dd>
                     </div>
                     <div className="flex justify-between">
-                      <dt className="text-gray-500">Trạng thái:</dt>
-                      <dd className="font-medium">{formData.is_active ? 'Mở (Active)' : 'Ẩn (Draft)'}</dd>
+                      <dt className="text-gray-500">Trạng thái khi lưu:</dt>
+                      <dd className="font-medium">&ldquo;Cập nhật nháp&rdquo; = Ẩn · &ldquo;Cập nhật &amp; Mở&rdquo; = Hiện + cho làm bài</dd>
                     </div>
                     <div className="flex justify-between">
                       <dt className="text-gray-500">Audio key:</dt>
@@ -590,9 +587,12 @@ export default function EditLessonPage() {
                 <li>Bài học (lessons)</li>
                 <li>Tất cả đáp án (questions)</li>
                 <li>File audio trên R2 (nếu có)</li>
-                <li>Lịch sử làm bài của sinh viên (submissions liên quan)</li>
               </ul>
-              <p className="text-xs text-red-500 mb-4">⚠ Hành động không thể hoàn tác!</p>
+              <p className="text-xs text-red-500 mb-4">
+                ⚠ Nếu bài đã có SV làm, hệ thống sẽ TỪ CHỐT xóa (bảo toàn dữ liệu).
+                Khi đó hãy dùng &ldquo;Cập nhật nháp&rdquo; để ẩn bài thay vì xóa.
+                Hành động không thể hoàn tác!
+              </p>
               <div className="flex justify-end gap-3">
                 <button
                   onClick={() => setShowDeleteConfirm(false)}

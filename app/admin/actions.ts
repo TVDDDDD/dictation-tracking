@@ -392,7 +392,7 @@ export async function updateLesson(lessonId: number, input: LessonInput): Promis
     }
 
     revalidatePath('/admin/lessons')
-    return { success: true, message: 'Cập nhật bài thành công (đã có submissions → chỉ cho sửa đáp án đúng, không thay đổi cấu trúc câu hỏi)' }
+    return { success: true, message: 'Đã cập nhật. Bài đã có SV làm → chỉ sửa được đáp án đúng; không thay đổi câu hỏi/đoạn văn.' }
   }
 
   // Delete old questions
@@ -440,7 +440,7 @@ export async function deleteLesson(lessonId: number): Promise<{ success: boolean
   if ((subCount ?? 0) > 0) {
     return {
       success: false,
-      message: `Không thể xóa: bài này đã có ${subCount} lượt làm. Hãy dùng "Vô hiệu hóa" (is_active = false) để ẩn bài thay vì xóa.`
+      message: `Không thể xóa: bài này đã có ${subCount} lượt làm (dữ liệu SV phải giữ nguyên). Để ẩn bài: Sửa bài → bước 4 → bấm "Cập nhật nháp".`
     }
   }
 

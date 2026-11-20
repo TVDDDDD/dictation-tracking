@@ -33,7 +33,7 @@ export default function AuthCodeErrorPage() {
           <div className="auth-message" role="alert">
             <strong>Có thể nguyên nhân:</strong>
             <ul className="list-disc list-inside mt-2 space-y-1 text-sm">
-              <li>Link đã hết hạn (hạn 24h cho reset password, 7 ngày cho invite)</li>
+              <li>Link đã hết hạn (link đặt lại mật khẩu thường có hiệu lực trong 24 giờ)</li>
               <li>Link đã được sử dụng trước đó</li>
               <li>Sai token hoặc type parameter</li>
             </ul>

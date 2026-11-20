@@ -102,10 +102,6 @@ export default function CreateLessonPage() {
     setFormData(prev => ({ ...prev, title: e.target.value }))
   }
 
-  const handleActiveChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setFormData(prev => ({ ...prev, is_active: e.target.checked }))
-  }
-
   const handleAudioUpload = async (file: File) => {
     setAudioUploading(true)
     setAudioError('')
@@ -255,10 +251,10 @@ export default function CreateLessonPage() {
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Lớp áp dụng <span className="text-red-500">*</span>
+                  Lớp áp dụng
                 </label>
                 <p className="text-sm text-gray-500 mb-3">
-                  Chọn một hoặc nhiều lớp. Để trống = bài hiển thị cho tất cả lớp.
+                  Chọn một hoặc nhiều lớp. Để trống = bài hiển thị cho tất cả lớp, nhưng SV chỉ làm được khi bạn MỞ bài cho lớp đó ở panel &ldquo;Mở/đóng bài theo lớp&rdquo; (trang Quản trị).
                 </p>
                 <div className="space-y-2 max-h-60 overflow-y-auto border rounded-lg p-3">
                   {classes.map((c) => (
@@ -284,20 +280,8 @@ export default function CreateLessonPage() {
                 {errors.class_codes && <p className="mt-1 text-sm text-red-500">{errors.class_codes}</p>}
               </div>
 
-              <div className="flex items-center">
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={formData.is_active}
-                    onChange={handleActiveChange}
-                    className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-                  />
-                  <span className="text-sm text-gray-700">Mở bài ngay sau khi lưu (is_active)</span>
-                </label>
-              </div>
-
               <p className="text-sm text-gray-500">
-                Thứ tự bài sẽ được gán tự động theo lớp (số lớn nhất hiện tại + 1). Số nhỏ hơn = hiển thị trước.
+                Thứ tự bài sẽ được gán tự động = số thứ tự lớn nhất hiện có + 1 (toàn cục). Số nhỏ hơn = hiển thị trước. Trạng thái Mở/Ẩn được quyết định bằng nút lưu ở Bước 4.
               </p>
 
               <div className="flex justify-end pt-4 border-t">
@@ -354,7 +338,7 @@ export default function CreateLessonPage() {
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 15a4 4 0 01-4-4V5a2 2 0 012-2h6a2 2 0 012 2v6a4 4 0 01-4 4zm0 0H5M7 15h10M7 15l2.5-2.5M7 15l-2.5-2.5" />
                     </svg>
                     <p className="text-gray-600">Kéo thả file MP3 vào đây hoặc click để chọn</p>
-                    <p className="text-xs text-gray-400">Tối đa 50MB · Định dạng: audio/mpeg (MP3)</p>
+                    <p className="text-xs text-gray-400">Chỉ nên upload file .MP3 — định dạng khác (wav, m4a...) sẽ bị từ chối khi lưu bài.</p>
                     <label htmlFor="audio-file" className="button button-secondary button-small mt-2 inline-block">
                       Chọn file
                     </label>
@@ -415,6 +399,9 @@ export default function CreateLessonPage() {
                   <li>Dùng toolbar để chèn/xóa blank. Số thứ tự tự động.</li>
                   <li>Bên phải nhập đáp án đúng cho từng blank. Không được để trống.</li>
                   <li>Số đáp án phải bằng số ô trống trong đoạn văn.</li>
+                  <li>
+                    Nhiều cách viết đúng cho 1 chỗ trống? Dùng dấu <code>|</code> (VD: <code>harbour|harbor</code> hoặc <code>eighteenth century|18th century</code>). Sinh viên nhập đúng bất kỳ biến thể nào sẽ được điểm — không phân biệt hoa thường.
+                  </li>
                 </ul>
               </div>
 
@@ -446,8 +433,8 @@ export default function CreateLessonPage() {
                       <dd className="font-medium">{formData.title || '—'}</dd>
                     </div>
                     <div className="flex justify-between">
-                      <dt className="text-gray-500">Trạng thái:</dt>
-                      <dd className="font-medium">{formData.is_active ? 'Mở (Active)' : 'Ẩn (Draft)'}</dd>
+                      <dt className="text-gray-500">Trạng thái khi lưu:</dt>
+                      <dd className="font-medium">&ldquo;Lưu nháp&rdquo; = Ẩn · &ldquo;Lưu &amp; Mở ngay&rdquo; = Hiện + cho làm bài</dd>
                     </div>
                     <div className="flex justify-between">
                       <dt className="text-gray-500">Audio key:</dt>

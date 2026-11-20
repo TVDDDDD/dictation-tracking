@@ -106,7 +106,7 @@ export async function POST(request: NextRequest) {
             }
             if (existingAttempt) {
                 return NextResponse.json(
-                    { error: 'Bạn đã được cấp quyền nghe bài này rồi' },
+                    { error: 'Bạn đã dùng lượt nghe trong lượt thi này (mỗi lượt thi chỉ nghe 1 lần).' },
                     { status: 403 }
                 )
             }
@@ -153,7 +153,7 @@ export async function POST(request: NextRequest) {
             if (insertError) {
                 if (insertError.code === '23505') {
                     return NextResponse.json(
-                        { error: 'Bạn đã được cấp quyền nghe bài này rồi' },
+                        { error: 'Bạn đã dùng lượt nghe trong lượt thi này (mỗi lượt thi chỉ nghe 1 lần).' },
                         { status: 403 }
                     )
                 }

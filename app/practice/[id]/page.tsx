@@ -29,6 +29,9 @@ type HighlightRange = {
 type PostSubmitMode = 'result' | 'practice' | null
 type PracticePhase = 'answering' | 'checked'
 
+// Hiển thị đáp án: "harbour|harbor" → "harbour / harbor"
+const formatCorrectAnswer = (raw: string) => raw.split('|').map((v) => v.trim()).filter(Boolean).join(' / ')
+
 export default function PracticePage() {
   const [lesson, setLesson] = useState<Lesson | null>(null)
   const [questions, setQuestions] = useState<Question[]>([])
@@ -229,7 +232,7 @@ export default function PracticePage() {
               const correct = Array.isArray(sa.questions)
                 ? sa.questions[0]?.correct_answer
                 : undefined
-              if (correct) cMap[qn] = correct
+              if (correct) cMap[qn] = formatCorrectAnswer(correct)
             }
             setResultsMap((prev) => ({ ...prev, ...rMap }))
             setCorrectAnswersMap((prev) => ({ ...prev, ...cMap }))
@@ -553,7 +556,7 @@ export default function PracticePage() {
                 {(isSubmitted && !isPracticeMode && !isCorrect && correctAnswersMap[num]) || (isPracticeMode && isChecked && !isCorrect && practiceAnswers[num]) ? (
                   <span className="ml-1 text-xs text-green-700">
                     {(() => {
-                      if (isSubmitted && !isPracticeMode) return correctAnswersMap[num]
+                      if (isSubmitted && !isPracticeMode) return formatCorrectAnswer(correctAnswersMap[num])
                       const pa = practiceAnswers[num]
                       // practiceAnswers[num] is { display, variants }
                       return pa?.display || (typeof pa === 'string' ? pa : '')
@@ -605,7 +608,7 @@ export default function PracticePage() {
 
       res.result.details.forEach((item) => {
         newResultsMap[item.question_number] = item.is_correct
-        newCorrectMap[item.question_number] = item.correct_answer
+        newCorrectMap[item.question_number] = formatCorrectAnswer(item.correct_answer)
       })
 
       setResultsMap(newResultsMap)
@@ -732,7 +735,7 @@ export default function PracticePage() {
                   : showPracticeAnswering || showPracticeChecked
                   ? 'PRACTICE MODE'
                   : isExamMode
-                  ? 'PRACTICE SESSION'
+                  ? 'EXAM SESSION'
                   : 'REVIEW RESULT'
               }
             />
@@ -858,7 +861,8 @@ export default function PracticePage() {
 
         {/* Đoạn văn đục lỗ - 8/12 = 2/3 */}
         <div className="lg:col-span-8 bg-white rounded-lg shadow p-6">
-          <h2 className="text-lg font-semibold mb-4">Điền vào chỗ trống</h2>
+          <h2 className="text-lg font-semibold mb-1">Điền vào chỗ trống</h2>
+          <p className="text-sm text-gray-500 mb-4">Một chỗ trống có thể chấp nhận nhiều cách viết tương đương — không phân biệt hoa thường.</p>
 
           <div className="mb-6 p-4 bg-gray-50 rounded-md border">
             <div className="mb-4 flex flex-wrap items-center gap-2">

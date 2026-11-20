@@ -196,7 +196,7 @@ export default function PassageEditor({ passage: initialPassage, questions: init
                   className={`flex-1 text-sm px-3 py-1.5 border rounded ${
                     !q.correct_answer.trim() ? 'border-red-400 bg-red-50' : 'border-gray-300'
                   } focus:ring-2 focus:ring-blue-500 focus:border-transparent`}
-                  placeholder={`Đáp án câu ${q.question_number}`}
+                  placeholder={`VD: harbour|harbor (dùng | nếu nhiều cách viết)`}
                 />
               </div>
             ))}

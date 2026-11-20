@@ -132,6 +132,9 @@ export default async function AdminPage({
             <Link href="/admin/lessons" className="button button-secondary">
               Quản lý bài nghe
             </Link>
+            <Link href="/admin/troubleshooting" className="button button-secondary">
+              Sổ tay sự cố
+            </Link>
           </div>
           <span className="user-chip">
             Quản trị: <strong>{profile.full_name}</strong>
@@ -195,8 +198,8 @@ export default async function AdminPage({
                 <th className="px-4 py-3">Bài</th>
                 <th className="px-4 py-3">Câu đúng</th>
                 <th className="px-4 py-3">Điểm</th>
-                <th className="px-4 py-3">Nghe</th>
-                <th className="px-4 py-3">Lượt</th>
+                <th className="px-4 py-3">Số lần nghe</th>
+                <th className="px-4 py-3">Lượt làm (1/2)</th>
                 <th className="px-4 py-3">Thời gian nộp</th>
               </tr>
             </thead>

@@ -214,7 +214,13 @@ export default function LessonAccessPanel({ lessons, classList }: Props) {
       <div>
         <h2 className="text-lg font-semibold mb-1">Mở/đóng bài theo lớp</h2>
         <p className="text-sm text-gray-500 mb-3">
-          Chọn lớp → bảng dưới hiển thị các bài của lớp đó. Bật/tắt từng bài.
+          Chọn lớp → bảng hiển thị TẤT CẢ bài, kèm trạng thái Mở/Đóng của lớp đã chọn.
+          Bật/tắt từng bài, hoặc dùng &ldquo;Mở/Đóng tất cả&rdquo;.
+        </p>
+        <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-md px-3 py-2 mb-3">
+          ⚠ Mỗi lần SỬA &amp; LƯU bài trong &ldquo;Quản lý bài nghe&rdquo;, hệ thống tự đồng bộ quyền mở
+          bài từ danh sách lớp của bài đó — các nút Mở/Đóng thủ công ở bảng này (đối với bài vừa lưu)
+          sẽ bị ghi đè. Hãy chọn đúng danh sách lớp ngay trong wizard.
         </p>
 
         {classList.length === 0 ? (
@@ -257,7 +263,7 @@ export default function LessonAccessPanel({ lessons, classList }: Props) {
                   onClick={() => handleBulkToggle(false)}
                   disabled={busy?.startsWith('bulk:') || lessons.length === 0}
                   className="button button-secondary button-small"
-                  title="Đóng tất cả bài cho lớp này"
+                  title="Ngay lập tức khóa tất cả bài cho lớp này (SV đang làm dở lượt hiện tại vẫn nộp được; lượt mới bị chặn tới khi bật lại)"
                 >
                   Đóng tất cả
                 </button>
@@ -275,8 +281,8 @@ export default function LessonAccessPanel({ lessons, classList }: Props) {
                       <tr>
                         <th className="px-4 py-3">Bài</th>
                         <th className="px-4 py-3 text-center w-32">Trạng thái</th>
-                        <th className="px-4 py-3 text-center w-40">Admin mở</th>
-                        <th className="px-4 py-3 text-center w-40">Thời gian</th>
+                        <th className="px-4 py-3 text-center w-40">Mở bởi (audit)</th>
+                        <th className="px-4 py-3 text-center w-40">Khi mở (giờ VN)</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -367,9 +373,9 @@ export default function LessonAccessPanel({ lessons, classList }: Props) {
       <div>
         <h2 className="text-lg font-semibold mb-1">Cấp làm lại (makeup)</h2>
         <p className="text-sm text-gray-500 mb-3">
-          Tìm sinh viên → chọn bài → cấp quyền. Bài nộp cũ được giữ nguyên;
-          sinh viên làm submission mới (lượt 2). Mỗi sinh viên mỗi bài tối đa
-          1 lần makeup.
+          Tìm sinh viên → chọn bài → cấp quyền làm lại. Hệ thống xóa lượt nghe cũ (SV được
+          nghe lại 1 lần ở chế độ thi) + mở lượt 2; điểm lượt 1 giữ nguyên.
+          Mỗi sinh viên mỗi bài tối đa 1 lần makeup.
         </p>
 
         <div className="flex flex-wrap items-center gap-3 mb-3">
