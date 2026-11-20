@@ -2,7 +2,7 @@
 **Production Deployment for Monday Launch**  
 **Target:** Class NN1/D2026 (32 students) + 5 regular classes (~240 students total)  
 **Domain:** `https://successful-listening.online`  
-**Last Updated:** 2026-11-05
+**Last Updated:** 2026-11-20
 
 ---
 
@@ -479,3 +479,42 @@ Creates new project ref → update Vercel env vars → redeploy.
 | Admin nav link → /admin/lessons | ✅ Done |
 
 **Thesis data collection ready.** No further action needed unless new issues arise.
+
+---
+
+## 🧰 NONTech ADMIN PREP (2026-11-20) — committed `454737d`
+
+### R2 Usage Check
+- `node scripts/check-r2-usage.cjs` (new script): **18 files, 322 MB / free tier 10 GB** — egress R2 **miễn phí không giới hạn** (docs Cloudflare), chỉ lo storage + ops → **loại bỏ lo egress 30-40GB**
+- Class B reads worst-case 1,800/tháng vs limit 10M → an toàn
+- File lớn nhất 25.2 MB (CONTEXT trước đó ghi "<20MB" — đã sai từ trước, không ảnh hưởng)
+- Cloudflare billing check (1 phút, đã làm): không có gì để config thêm
+
+### Audit Text (user + admin, 2 subagent → verify từng finding)
+Sửa 22 text/code chỗ, 9 file — điểm chính:
+- **SV thấy raw `|` trong đáp án** (`practice/[id]/page.tsx`): `formatCorrectAnswer()` parse `harbour|harbor` → hiển thị `harbour / harbor` (3 chỗ: result, review, submit) + hint "nhiều cách viết, không phân biệt hoa thường"
+- Kicker exam bị gắn "PRACTICE SESSION" → "EXAM SESSION"
+- Presign 403 "Bạn đã được cấp quyền nghe" (ngược nghĩa) → "Bạn đã dùng lượt nghe trong lượt thi này" (2 chỗ, `app/api/audio/presign/route.ts`)
+- Dashboard "X bài đang mở" (đếm cả locked/done) → "X bài cho bạn"; "điền chính xác" → thêm "một số chỗ trống chấp nhận nhiều cách viết"
+- Register `minLength` 6→8 (đồng bộ reset page) + hint
+- `auth-code-error`: xóa "7 ngày cho invite" (luồng không tồn tại)
+- **Wizard (new + edit)**: xóa checkbox `is_active` chết (ghi đè bởi nút Step 4), label "Lớp áp dụng *" bỏ dấu *, "Tối đa 50MB" (không enforce) → cảnh báo MP3 thật, thêm hướng dẫn `|` variants, preview Step 4 "Trạng thái" (luôn sai do xóa checkbox) → mô tả nút lưu
+- **LessonRow/edit page delete**: text "sẽ xóa lịch sử SV" (sai — code CHẶN xóa khi có submissions) → cảnh báo thật + hướng dẫn ẩn bài bằng "Cập nhật nháp"
+- **LessonAccessPanel**: cảnh báo **trigger `sync_lesson_access` ghi đè toggle thủ công khi lưu bài qua wizard** (rủi ro lớn nhất nontech 5 tuần — trước đây im lặng), text makeup (SV nghe lại 1 lần), tooltip bulk close, dropdown class chỉ hiện code
+- `actions.ts`: message `deleteLesson` ("Vô hiệu hóa" — nút không tồn tại) + `updateLesson` (technical → nontechnical)
+- ⚠️ Claim "SV makeup không nghe được audio" của audit là **SAI** — đã verify `grantMakeup` xóa `listen_attempts` → SV makeup nghe lại 1 lần đúng
+
+### Sổ tay sự cố `/admin/troubleshooting` (new, 2 files + link topbar `/admin`)
+- Nút "🩺 Kiểm tra hệ thống" (fetch `/api/health`): 3 trạng thái — DB ok / DB lỗi (web mở được) / không kiểm tra được (mạng admin). **Nút không phục vụ case site sập hoàn toàn** (admin không mở được trang) — UptimeRobot lo case đó
+- 8 sự cố dạng `<details>` collapsible (zero code client): site sập, DB lỗi, bài không hiện, audio lỗi, email, sai class, wizard lỗi, catch-all
+- Vùng xanh (tự làm) / vùng đỏ (CHỈ BÁO DEV): Supabase Dashboard, Vercel, Resend, CORS, sửa DB, **sửa mã lớp SV (chủ đích bỏ qua panel — dev tự sửa khi cần)**
+- Escalate: admin liên hệ dev trực tiếp (không có template, không ép kênh)
+- ✅ Lint 0, build pass, **admin đã test pass**
+
+### Skipped (chủ đích)
+- Panel "Quản lý sinh viên" (đổi `class_code` trong app) — bỏ theo dev
+- Checklist trước buổi, email notification, CSV export, PWA (future improvements)
+
+### Deploy & git
+- Commit `454737d` "new feat: admin troubleshooting handbook + text fixes + R2 usage check" → `main` → Vercel auto-deploy
+- `.gitignore`: thêm `.codegraph/` (CodeGraph index local, 45 files / 575 nodes — index snapshot, chạy `codegraph analyze` lại sau refactor lớn)
