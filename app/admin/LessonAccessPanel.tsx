@@ -263,7 +263,7 @@ export default function LessonAccessPanel({ lessons, classList }: Props) {
                   onClick={() => handleBulkToggle(false)}
                   disabled={busy?.startsWith('bulk:') || lessons.length === 0}
                   className="button button-secondary button-small"
-                  title="Ngay lập tức khóa tất cả bài cho lớp này (SV đang làm dở lượt hiện tại vẫn nộp được; lượt mới bị chặn tới khi bật lại)"
+                  title="Ngay lập tức khóa tất cả bài cho lớp này (lớp đó không làm được lượt mới; SV đang làm dở vẫn nghe được audio đã tải nhưng KHÔNG nộp được nữa — nộp bị kiểm tra quyền khi bấm Nộp)"
                 >
                   Đóng tất cả
                 </button>
